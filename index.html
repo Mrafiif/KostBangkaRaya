@@ -804,13 +804,11 @@
   async function loadSiteData() {
     let data = DEFAULT_DATA;
     try {
-      if (SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
-        const res = await fetch(SCRIPT_URL + '?action=getData');
-        const json = await res.json();
-        if (json.success && json.data) data = { ...DEFAULT_DATA, ...json.data };
-      }
+      const res = await fetch(SCRIPT_URL + '?action=getData&t=' + Date.now());
+      const json = await res.json();
+      if (json.success && json.data) data = { ...DEFAULT_DATA, ...json.data };
     } catch(e) {
-      console.warn('Gagal load dari server, pakai data default.');
+      console.warn('Gagal load dari Google Sheets, pakai data default.');
     }
     applyData(data);
   }
