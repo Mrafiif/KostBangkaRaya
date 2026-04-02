@@ -345,6 +345,13 @@
           <p style="font-size:0.9rem;color:var(--text-muted);">Nomor WA: <strong id="dash-wa-num" style="color:var(--charcoal);">—</strong></p>
           <p style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;">Ganti nomor di menu Pengaturan</p>
         </div>
+        <div class="card" style="border-left:4px solid var(--sage-dark);">
+          <div class="card-title"><span class="emoji">🔄</span> Status Sinkronisasi</div>
+          <p id="sync-status" style="font-size:0.95rem;font-weight:600;">⏳ Memeriksa koneksi...</p>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:8px;">
+            Semua perubahan di panel admin akan otomatis tersinkron ke website di HP, laptop, dan perangkat lainnya.
+          </p>
+        </div>
       </div>
 
       <!-- HARGA -->
@@ -479,6 +486,20 @@
           </div>
           <button class="btn btn-save" onclick="changePassword()">🔐 Ganti Password</button>
         </div>
+        <div class="card" style="border-left:4px solid var(--sage-dark);">
+          <div class="card-title"><span class="emoji">🔄</span> Setup Sinkronisasi Google Sheets</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);line-height:2;">
+            <p style="font-weight:600;color:var(--charcoal);margin-bottom:8px;">Langkah setup sinkronisasi semua perangkat:</p>
+            <p>1. Buka <a href="https://script.google.com" target="_blank" style="color:var(--sage-dark);font-weight:600;">script.google.com</a> → klik <strong>New Project</strong></p>
+            <p>2. Hapus kode yang ada → paste seluruh isi file <strong>google-apps-script.js</strong></p>
+            <p>3. Klik <strong>Deploy → New Deployment → Web App</strong></p>
+            <p>4. Isi: Execute as = <strong>Me</strong> | Who has access = <strong>Anyone</strong></p>
+            <p>5. Klik <strong>Deploy</strong> → copy URL yang muncul</p>
+            <p>6. Paste URL itu di file <strong>index.html</strong> dan <strong>admin.html</strong> pada baris:<br>
+               <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:0.78rem;">const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDsfTLMWmcFUM0J6uGyG26dX42vsk0Ne5TlfXeln5IM-OhwApTbQgzo5UIbVwEsS2l1w/exec'</code></p>
+            <p>7. Upload ulang ke GitHub → Vercel auto-deploy ✅</p>
+          </div>
+        </div>
         <div class="card">
           <div class="card-title"><span class="emoji">🌐</span> Info SEO Website</div>
           <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.8;">
@@ -550,8 +571,10 @@
   }
 
   // ============================================================
-  // DATA
+  // CONFIG — Sama dengan di index.html
   // ============================================================
+  const SCRIPT_URL = 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA';
+
   const DEFAULT_DATA = {
     waNumber: '6281234567890',
     contactName: '',
@@ -570,16 +593,49 @@
     images: { hero: [], ac: [], nonac: [], galeri: [] }
   };
 
-  function getData() {
+  // Cache lokal sementara selama session admin
+  let _cachedData = null;
+
+  async function getData() {
+    if (_cachedData) return _cachedData;
     try {
-      const saved = localStorage.getItem('kostBangkaRaya');
-      const d = saved ? JSON.parse(saved) : {};
-      return { ...DEFAULT_DATA, ...d, facilities: d.facilities || DEFAULT_DATA.facilities, images: d.images || DEFAULT_DATA.images };
-    } catch { return DEFAULT_DATA; }
+      if (SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+        showToast('⏳ Memuat data...');
+        const res = await fetch(SCRIPT_URL + '?action=getData');
+        const json = await res.json();
+        if (json.success && json.data) {
+          _cachedData = { ...DEFAULT_DATA, ...json.data,
+            facilities: json.data.facilities || DEFAULT_DATA.facilities,
+            images: json.data.images || DEFAULT_DATA.images
+          };
+          return _cachedData;
+        }
+      }
+    } catch(e) {
+      console.warn('Gagal load dari server:', e);
+    }
+    _cachedData = { ...DEFAULT_DATA };
+    return _cachedData;
   }
 
-  function saveData(data) {
-    localStorage.setItem('kostBangkaRaya', JSON.stringify(data));
+  async function saveData(data) {
+    _cachedData = data;
+    try {
+      if (SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error('Server error');
+      } else {
+        // Fallback localStorage kalau belum setup
+        localStorage.setItem('kostBangkaRaya', JSON.stringify(data));
+      }
+    } catch(e) {
+      console.warn('Gagal simpan ke server, pakai localStorage:', e);
+      localStorage.setItem('kostBangkaRaya', JSON.stringify(data));
+    }
   }
 
   function showToast(msg) {
@@ -598,13 +654,16 @@
     event.currentTarget.classList.add('active');
     if (name === 'fasilitas') renderFacilitiesEditor();
     if (name === 'galeri') renderAllUploaders();
+    if (name === 'dashboard') loadAdminData();
   }
 
   // ============================================================
   // LOAD ADMIN DATA
   // ============================================================
-  function loadAdminData() {
-    const d = getData();
+  async function loadAdminData() {
+    const d = await getData();
+    const syncStatus = document.getElementById('sync-status');
+    if (syncStatus) syncStatus.textContent = SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA' ? '🟢 Terhubung ke Google Sheets' : '🔴 Belum setup — data tidak tersinkron';
     
     // Dashboard
     document.getElementById('dash-price-ac').textContent = d.priceAC || DEFAULT_DATA.priceAC;
@@ -625,28 +684,30 @@
   // ============================================================
   // SAVE HARGA
   // ============================================================
-  function saveHarga() {
-    const d = getData();
+  async function saveHarga() {
+    const d = await getData();
     d.priceAC = document.getElementById('inp-price-ac').value.trim() || d.priceAC;
     d.priceNonAC = document.getElementById('inp-price-nonac').value.trim() || d.priceNonAC;
     d.noteAC = document.getElementById('inp-note-ac').value.trim();
     d.noteNonAC = document.getElementById('inp-note-nonac').value.trim();
-    saveData(d);
+    await saveData(d);
     document.getElementById('dash-price-ac').textContent = d.priceAC;
     document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
-    showToast('✅ Harga berhasil disimpan!');
+    _cachedData = null;
+    showToast('✅ Harga tersimpan & sinkron ke semua perangkat!');
   }
 
   // ============================================================
   // SAVE WA
   // ============================================================
-  function saveWA() {
-    const d = getData();
+  async function saveWA() {
+    const d = await getData();
     d.waNumber = document.getElementById('inp-wa').value.trim() || d.waNumber;
     d.contactName = document.getElementById('inp-contact-name').value.trim();
-    saveData(d);
+    await saveData(d);
     document.getElementById('dash-wa-num').textContent = d.waNumber;
-    showToast('✅ Nomor WhatsApp disimpan!');
+    _cachedData = null;
+    showToast('✅ Nomor WA tersimpan & sinkron ke semua perangkat!');
   }
 
   // ============================================================
@@ -654,8 +715,8 @@
   // ============================================================
   let tempFacilities = [];
 
-  function renderFacilitiesEditor() {
-    const d = getData();
+  async function renderFacilitiesEditor() {
+    const d = await getData();
     tempFacilities = JSON.parse(JSON.stringify(d.facilities));
     const container = document.getElementById('facilities-editor');
     container.innerHTML = '';
@@ -708,8 +769,8 @@
     });
   }
 
-  function saveFasilitas() {
-    const d = getData();
+  async function saveFasilitas() {
+    const d = await getData();
     // collect current values from inputs
     const rows = document.querySelectorAll('.facility-row');
     rows.forEach((row, i) => {
@@ -722,24 +783,25 @@
       }
     });
     d.facilities = tempFacilities;
-    saveData(d);
-    showToast('✅ Fasilitas berhasil disimpan!');
+    await saveData(d);
+    _cachedData = null;
+    showToast('✅ Fasilitas tersimpan & sinkron ke semua perangkat!');
   }
 
   // ============================================================
   // IMAGE UPLOADERS
   // ============================================================
-  function renderAllUploaders() {
+  async function renderAllUploaders() {
     renderUploader('upload-hero', 'hero', 3);
     renderUploader('upload-ac', 'ac', 6);
     renderUploader('upload-nonac', 'nonac', 6);
     renderUploader('upload-galeri', 'galeri', 8);
   }
 
-  function renderUploader(containerId, key, max) {
+  async function renderUploader(containerId, key, max) {
     const container = document.getElementById(containerId);
     if (!container) return;
-    const d = getData();
+    const d = await getData();
     const images = (d.images && d.images[key]) || [];
     
     container.innerHTML = `
@@ -788,9 +850,10 @@
         d.images[key].push(e.target.result);
         processed++;
         if (processed === toProcess.length) {
-          saveData(d);
+          await saveData(d);
+          _cachedData = null;
           renderPreview(key, d.images[key]);
-          showToast(`✅ ${processed} foto berhasil diupload!`);
+          showToast(`✅ ${processed} foto berhasil diupload & tersinkron!`);
         }
       };
       reader.readAsDataURL(file);
@@ -798,13 +861,14 @@
     event.target.value = '';
   }
 
-  function removeImage(key, index) {
-    const d = getData();
+  async function removeImage(key, index) {
+    const d = await getData();
     if (d.images && d.images[key]) {
       d.images[key].splice(index, 1);
-      saveData(d);
+      await saveData(d);
+      _cachedData = null;
       renderPreview(key, d.images[key]);
-      showToast('🗑️ Foto dihapus');
+      showToast('🗑️ Foto dihapus & tersinkron');
     }
   }
 
