@@ -345,13 +345,6 @@
           <p style="font-size:0.9rem;color:var(--text-muted);">Nomor WA: <strong id="dash-wa-num" style="color:var(--charcoal);">—</strong></p>
           <p style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;">Ganti nomor di menu Pengaturan</p>
         </div>
-        <div class="card" style="border-left:4px solid var(--sage-dark);">
-          <div class="card-title"><span class="emoji">🔄</span> Status Sinkronisasi</div>
-          <p id="sync-status" style="font-size:0.95rem;font-weight:600;">⏳ Memeriksa koneksi...</p>
-          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:8px;">
-            Semua perubahan di panel admin akan otomatis tersinkron ke website di HP, laptop, dan perangkat lainnya.
-          </p>
-        </div>
       </div>
 
       <!-- HARGA -->
@@ -486,20 +479,6 @@
           </div>
           <button class="btn btn-save" onclick="changePassword()">🔐 Ganti Password</button>
         </div>
-        <div class="card" style="border-left:4px solid var(--sage-dark);">
-          <div class="card-title"><span class="emoji">🔄</span> Setup Sinkronisasi Google Sheets</div>
-          <div style="font-size:0.82rem;color:var(--text-muted);line-height:2;">
-            <p style="font-weight:600;color:var(--charcoal);margin-bottom:8px;">Langkah setup sinkronisasi semua perangkat:</p>
-            <p>1. Buka <a href="https://script.google.com" target="_blank" style="color:var(--sage-dark);font-weight:600;">script.google.com</a> → klik <strong>New Project</strong></p>
-            <p>2. Hapus kode yang ada → paste seluruh isi file <strong>google-apps-script.js</strong></p>
-            <p>3. Klik <strong>Deploy → New Deployment → Web App</strong></p>
-            <p>4. Isi: Execute as = <strong>Me</strong> | Who has access = <strong>Anyone</strong></p>
-            <p>5. Klik <strong>Deploy</strong> → copy URL yang muncul</p>
-            <p>6. Paste URL itu di file <strong>index.html</strong> dan <strong>admin.html</strong> pada baris:<br>
-               <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:0.78rem;">const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDsfTLMWmcFUM0J6uGyG26dX42vsk0Ne5TlfXeln5IM-OhwApTbQgzo5UIbVwEsS2l1w/exec'</code></p>
-            <p>7. Upload ulang ke GitHub → Vercel auto-deploy ✅</p>
-          </div>
-        </div>
         <div class="card">
           <div class="card-title"><span class="emoji">🌐</span> Info SEO Website</div>
           <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.8;">
@@ -536,14 +515,14 @@
     } catch { return DEFAULT_CREDENTIALS; }
   }
 
-  function doLogin() {
+  async function doLogin() {
     const u = document.getElementById('login-user').value.trim();
     const p = document.getElementById('login-pass').value;
     const creds = getCredentials();
     if (u === creds.user && p === creds.pass) {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('admin-screen').style.display = 'block';
-      loadAdminData();
+      await loadAdminData();
     } else {
       document.getElementById('login-error').style.display = 'block';
     }
@@ -571,7 +550,7 @@
   }
 
   // ============================================================
-  // CONFIG — Sama dengan di index.html
+  // DATA
   // ============================================================
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDsfTLMWmcFUM0J6uGyG26dX42vsk0Ne5TlfXeln5IM-OhwApTbQgzo5UIbVwEsS2l1w/exec';
 
@@ -593,26 +572,32 @@
     images: { hero: [], ac: [], nonac: [], galeri: [] }
   };
 
-  // Cache lokal sementara selama session admin
   let _cachedData = null;
 
   async function getData() {
     if (_cachedData) return _cachedData;
     try {
-      if (SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
-        showToast('⏳ Memuat data...');
-        const res = await fetch(SCRIPT_URL + '?action=getData');
-        const json = await res.json();
-        if (json.success && json.data) {
-          _cachedData = { ...DEFAULT_DATA, ...json.data,
-            facilities: json.data.facilities || DEFAULT_DATA.facilities,
-            images: json.data.images || DEFAULT_DATA.images
-          };
-          return _cachedData;
-        }
+      showToast('⏳ Memuat data...');
+      const res = await fetch(SCRIPT_URL + '?action=getData');
+      const json = await res.json();
+      if (json.success && json.data) {
+        _cachedData = { ...DEFAULT_DATA, ...json.data,
+          facilities: json.data.facilities || DEFAULT_DATA.facilities,
+          images: json.data.images || DEFAULT_DATA.images
+        };
+        return _cachedData;
       }
     } catch(e) {
-      console.warn('Gagal load dari server:', e);
+      console.warn('Gagal load dari server, pakai localStorage:', e);
+      try {
+        const saved = localStorage.getItem('kostBangkaRaya');
+        const d = saved ? JSON.parse(saved) : {};
+        _cachedData = { ...DEFAULT_DATA, ...d,
+          facilities: d.facilities || DEFAULT_DATA.facilities,
+          images: d.images || DEFAULT_DATA.images
+        };
+        return _cachedData;
+      } catch(e2) {}
     }
     _cachedData = { ...DEFAULT_DATA };
     return _cachedData;
@@ -621,19 +606,14 @@
   async function saveData(data) {
     _cachedData = data;
     try {
-      if (SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
-        const res = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify(data)
-        });
-        const json = await res.json();
-        if (!json.success) throw new Error('Server error');
-      } else {
-        // Fallback localStorage kalau belum setup
-        localStorage.setItem('kostBangkaRaya', JSON.stringify(data));
-      }
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error('Server error');
     } catch(e) {
-      console.warn('Gagal simpan ke server, pakai localStorage:', e);
+      console.warn('Gagal simpan ke server, fallback localStorage:', e);
       localStorage.setItem('kostBangkaRaya', JSON.stringify(data));
     }
   }
@@ -647,14 +627,14 @@
   // ============================================================
   // SECTIONS
   // ============================================================
-  function showSection(name) {
+  async function showSection(name) {
     document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('section-' + name).classList.add('active');
     event.currentTarget.classList.add('active');
-    if (name === 'fasilitas') renderFacilitiesEditor();
-    if (name === 'galeri') renderAllUploaders();
-    if (name === 'dashboard') loadAdminData();
+    if (name === 'fasilitas') await renderFacilitiesEditor();
+    if (name === 'galeri') await renderAllUploaders();
+    if (name === 'dashboard') await loadAdminData();
   }
 
   // ============================================================
@@ -664,7 +644,6 @@
     const d = await getData();
     const syncStatus = document.getElementById('sync-status');
     if (syncStatus) syncStatus.textContent = SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA' ? '🟢 Terhubung ke Google Sheets' : '🔴 Belum setup — data tidak tersinkron';
-    
     // Dashboard
     document.getElementById('dash-price-ac').textContent = d.priceAC || DEFAULT_DATA.priceAC;
     document.getElementById('dash-price-nonac').textContent = d.priceNonAC || DEFAULT_DATA.priceNonAC;
@@ -693,8 +672,7 @@
     await saveData(d);
     document.getElementById('dash-price-ac').textContent = d.priceAC;
     document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
-    _cachedData = null;
-    showToast('✅ Harga tersimpan & sinkron ke semua perangkat!');
+    showToast('✅ Harga berhasil disimpan!');
   }
 
   // ============================================================
@@ -706,8 +684,7 @@
     d.contactName = document.getElementById('inp-contact-name').value.trim();
     await saveData(d);
     document.getElementById('dash-wa-num').textContent = d.waNumber;
-    _cachedData = null;
-    showToast('✅ Nomor WA tersimpan & sinkron ke semua perangkat!');
+    showToast('✅ Nomor WhatsApp disimpan!');
   }
 
   // ============================================================
@@ -784,14 +761,13 @@
     });
     d.facilities = tempFacilities;
     await saveData(d);
-    _cachedData = null;
-    showToast('✅ Fasilitas tersimpan & sinkron ke semua perangkat!');
+    showToast('✅ Fasilitas berhasil disimpan!');
   }
 
   // ============================================================
   // IMAGE UPLOADERS
   // ============================================================
-  async function renderAllUploaders() {
+  function renderAllUploaders() {
     renderUploader('upload-hero', 'hero', 3);
     renderUploader('upload-ac', 'ac', 6);
     renderUploader('upload-nonac', 'nonac', 6);
@@ -831,9 +807,9 @@
     }
   }
 
-  function handleUpload(event, key, max) {
+  async function handleUpload(event, key, max) {
     const files = Array.from(event.target.files);
-    const d = getData();
+    const d = await getData();
     if (!d.images) d.images = {};
     if (!d.images[key]) d.images[key] = [];
     
@@ -843,17 +819,17 @@
     if (files.length > remaining) showToast(`⚠️ Hanya ${remaining} foto lagi yang bisa ditambahkan`);
     
     let processed = 0;
-    toProcess.forEach(file => {
+    toProcess.forEach(function(file) {
       if (file.size > 5 * 1024 * 1024) { showToast('❌ File terlalu besar (max 5MB)'); return; }
       const reader = new FileReader();
-      reader.onload = (e) => {
-        d.images[key].push(e.target.result);
+      reader.onload = async function(ev) {
+        d.images[key].push(ev.target.result);
         processed++;
         if (processed === toProcess.length) {
           await saveData(d);
           _cachedData = null;
           renderPreview(key, d.images[key]);
-          showToast(`✅ ${processed} foto berhasil diupload & tersinkron!`);
+          showToast('✅ ' + processed + ' foto berhasil diupload & tersinkron!');
         }
       };
       reader.readAsDataURL(file);
@@ -866,9 +842,8 @@
     if (d.images && d.images[key]) {
       d.images[key].splice(index, 1);
       await saveData(d);
-      _cachedData = null;
       renderPreview(key, d.images[key]);
-      showToast('🗑️ Foto dihapus & tersinkron');
+      showToast('🗑️ Foto dihapus');
     }
   }
 
