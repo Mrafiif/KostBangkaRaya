@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal — Kost Bangka Raya</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #F5F0E8;
+      --sage: #7A9A7E;
+      --sage-dark: #4E6E52;
+      --sage-light: #B8D4BB;
+      --earth: #8B6F47;
+      --charcoal: #2C2C2C;
+      --text-muted: #6B6B6B;
+      --white: #FDFAF5;
+      --red: #E85555;
+      --blue: #4A90D9;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #F0EDE8; min-height: 100vh; }
+
+    /* LOGIN */
+    #login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--sage-dark), #3a5c3f);
+    }
+    .login-card {
+      background: white; border-radius: 24px; padding: 48px 40px;
+      width: 100%; max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .login-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem; color: var(--sage-dark);
+      margin-bottom: 6px;
+    }
+    .login-logo span { color: var(--earth); }
+    .login-sub { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 32px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display:block; font-size:0.82rem; font-weight:600; color:var(--charcoal); margin-bottom:7px; }
+    .form-group input {
+      width:100%; padding:11px 14px;
+      border: 1.5px solid #E0DAD2; border-radius: 10px;
+      font-size: 0.9rem; font-family: 'DM Sans', sans-serif;
+      outline: none; transition: border-color 0.2s;
+      color: var(--charcoal);
+    }
+    .form-group input:focus { border-color: var(--sage-dark); }
+    .login-btn {
+      width:100%; padding: 13px;
+      background: var(--sage-dark); color: white;
+      border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .login-btn:hover { background: var(--sage); }
+    .login-error {
+      background: #FEE; border: 1px solid #FCC;
+      color: var(--red); padding: 10px 14px; border-radius: 8px;
+      font-size: 0.82rem; margin-bottom: 16px; display: none;
+    }
+
+    /* ADMIN LAYOUT */
+    #admin-screen { display: none; }
+    .admin-layout { display: flex; min-height: 100vh; }
+    
+    /* SIDEBAR */
+    .sidebar {
+      width: 260px; background: var(--charcoal); color: white;
+      display: flex; flex-direction: column;
+      position: fixed; height: 100vh; z-index: 50;
+    }
+    .sidebar-logo {
+      padding: 28px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-logo .brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem; color: white;
+    }
+    .sidebar-logo .brand span { color: var(--earth); }
+    .sidebar-logo p { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top:4px; }
+    .sidebar-nav { flex:1; padding: 16px 0; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 24px; cursor: pointer;
+      font-size: 0.88rem; color: rgba(255,255,255,0.6);
+      transition: all 0.2s; border-left: 3px solid transparent;
+    }
+    .nav-item:hover { color: white; background: rgba(255,255,255,0.05); }
+    .nav-item.active { color: white; border-left-color: var(--sage); background: rgba(122,154,126,0.12); }
+    .nav-item .icon { font-size: 1.1rem; width: 20px; }
+    .sidebar-footer {
+      padding: 16px 24px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .logout-btn {
+      display: flex; align-items: center; gap: 8px;
+      color: rgba(255,255,255,0.4); font-size: 0.82rem;
+      cursor: pointer; transition: color 0.2s;
+    }
+    .logout-btn:hover { color: white; }
+
+    /* MAIN CONTENT */
+    .main-content { margin-left: 260px; flex:1; padding: 32px; }
+    
+    .page-header { margin-bottom: 32px; }
+    .page-header h1 { font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--charcoal); }
+    .page-header p { color: var(--text-muted); font-size: 0.88rem; margin-top: 4px; }
+
+    /* CARDS */
+    .card {
+      background: white; border-radius: 18px; padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .card-title {
+      font-size: 1rem; font-weight: 600; color: var(--charcoal);
+      margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+    }
+    .card-title .emoji { font-size: 1.2rem; }
+
+    /* TABS */
+    .tab-buttons { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tab-btn {
+      padding: 8px 20px; border-radius: 50px;
+      border: 1.5px solid #E0DAD2; background: white;
+      font-size: 0.85rem; font-weight: 500; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .tab-btn.active { background: var(--sage-dark); border-color: var(--sage-dark); color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* FORM ELEMENTS */
+    label.field-label { display:block; font-size:0.8rem; font-weight:600; color:var(--charcoal); margin-bottom:6px; }
+    input.field, textarea.field, select.field {
+      width: 100%; padding: 10px 13px;
+      border: 1.5px solid #E0DAD2; border-radius: 10px;
+      font-size: 0.88rem; font-family: 'DM Sans', sans-serif;
+      color: var(--charcoal); outline: none;
+      transition: border-color 0.2s;
+      background: #FDFAF5;
+    }
+    input.field:focus, textarea.field:focus { border-color: var(--sage-dark); }
+    textarea.field { resize: vertical; min-height: 80px; }
+    .field-group { margin-bottom: 16px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* BUTTONS */
+    .btn { 
+      padding: 10px 20px; border-radius: 10px; border: none;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn-save { background: var(--sage-dark); color: white; }
+    .btn-save:hover { background: var(--sage); }
+    .btn-danger { background: #FFF0F0; color: var(--red); }
+    .btn-danger:hover { background: var(--red); color: white; }
+    .btn-add { background: var(--cream); color: var(--sage-dark); border: 1.5px dashed var(--sage); }
+    .btn-add:hover { background: var(--sage-light); }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: var(--sage-dark); color: white;
+      padding: 14px 20px; border-radius: 12px;
+      font-size: 0.85rem; font-weight: 500;
+      z-index: 1000; transform: translateY(80px); opacity: 0;
+      transition: all 0.3s; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* IMAGE UPLOAD */
+    .img-upload-area {
+      border: 2px dashed var(--sage-light);
+      border-radius: 14px; padding: 28px;
+      text-align: center; cursor: pointer;
+      transition: all 0.2s; background: rgba(122,154,126,0.04);
+    }
+    .img-upload-area:hover { border-color: var(--sage-dark); background: rgba(122,154,126,0.08); }
+    .img-upload-area input[type=file] { display:none; }
+    .img-upload-area .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+    .img-upload-area p { font-size: 0.82rem; color: var(--text-muted); }
+    .img-upload-area .upload-label { color: var(--sage-dark); font-weight: 600; cursor: pointer; }
+
+    .images-preview {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px;
+    }
+    .img-thumb {
+      border-radius: 10px; overflow: hidden; position: relative;
+      aspect-ratio: 4/3; background: var(--cream);
+    }
+    .img-thumb img { width:100%; height:100%; object-fit:cover; }
+    .img-thumb .img-remove {
+      position: absolute; top: 6px; right: 6px;
+      background: rgba(0,0,0,0.55); color: white;
+      border: none; border-radius: 50%; width: 24px; height: 24px;
+      cursor: pointer; font-size: 0.7rem; display: flex;
+      align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .img-thumb:hover .img-remove { opacity: 1; }
+    .img-placeholder {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; font-size: 1.5rem; color: var(--text-muted);
+    }
+    .img-placeholder p { font-size: 0.7rem; margin-top: 4px; }
+
+    /* FACILITIES EDITOR */
+    .facility-row {
+      display: grid; grid-template-columns: 50px 1fr 2fr auto auto;
+      gap: 10px; align-items: center;
+      padding: 12px; background: var(--cream);
+      border-radius: 10px; margin-bottom: 8px;
+    }
+    .facility-row .emoji-input {
+      text-align: center; font-size: 1.3rem;
+      width: 100%; padding: 6px;
+      border: 1.5px solid #E0DAD2; border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      background: white;
+    }
+    .badge-select {
+      padding: 6px 10px; border: 1.5px solid #E0DAD2;
+      border-radius: 8px; font-size: 0.78rem;
+      font-family: 'DM Sans', sans-serif; background: white;
+    }
+
+    /* STATS CARDS */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 28px; }
+    .stat-card {
+      background: white; border-radius: 16px; padding: 22px 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .stat-card .s-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .stat-card .s-value { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--charcoal); }
+    .stat-card .s-sub { font-size: 0.75rem; color: var(--sage-dark); margin-top:4px; }
+
+    /* SECTION PAGES */
+    .section-page { display: none; }
+    .section-page.active { display: block; }
+
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; height: auto; position: relative; }
+      .admin-layout { flex-direction: column; }
+      .main-content { margin-left: 0; padding: 20px; }
+      .form-row { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .facility-row { grid-template-columns: 40px 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Kost <span>Bangka Raya</span></div>
+    <p class="login-sub">Portal Admin — Masuk untuk mengelola kost</p>
+    <div class="login-error" id="login-error">Password salah. Coba lagi.</div>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="admin" value="admin">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">🔐 Masuk</button>
+    <p style="font-size:0.72rem;color:var(--text-muted);margin-top:16px;text-align:center;">
+      Default: admin / admin123 — Ganti di menu Pengaturan
+    </p>
+  </div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div id="admin-screen">
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="brand">Kost <span>Bangka Raya</span></div>
+        <p>Admin Dashboard</p>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item active" onclick="showSection('dashboard')"><span class="icon">📊</span> Dashboard</div>
+        <div class="nav-item" onclick="showSection('harga')"><span class="icon">💰</span> Harga Kamar</div>
+        <div class="nav-item" onclick="showSection('fasilitas')"><span class="icon">🏠</span> Fasilitas</div>
+        <div class="nav-item" onclick="showSection('galeri')"><span class="icon">🖼️</span> Galeri & Foto</div>
+        <div class="nav-item" onclick="showSection('pengaturan')"><span class="icon">⚙️</span> Pengaturan</div>
+        <div class="nav-item" onclick="window.open('index.html','_blank')"><span class="icon">🌐</span> Lihat Website</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="logout-btn" onclick="doLogout()">🚪 Keluar</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- DASHBOARD -->
+      <div class="section-page active" id="section-dashboard">
+        <div class="page-header">
+          <h1>Dashboard</h1>
+          <p>Ringkasan informasi kost Bangka Raya</p>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="s-label">Tipe Kamar</div>
+            <div class="s-value">2</div>
+            <div class="s-sub">AC & Non-AC</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">Harga Kamar AC</div>
+            <div class="s-value" id="dash-price-ac">—</div>
+            <div class="s-sub">per bulan</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">Harga Non-AC</div>
+            <div class="s-value" id="dash-price-nonac">—</div>
+            <div class="s-sub">per bulan</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">📋</span> Panduan Admin</div>
+          <div style="line-height:1.8;color:var(--text-muted);font-size:0.88rem;">
+            <p>🔹 <strong>Harga Kamar</strong> — Update harga sewa kamar AC dan Non-AC</p>
+            <p>🔹 <strong>Fasilitas</strong> — Tambah, edit, atau hapus fasilitas yang tersedia</p>
+            <p>🔹 <strong>Galeri & Foto</strong> — Upload foto kamar dan area kost</p>
+            <p>🔹 <strong>Pengaturan</strong> — Ganti nomor WhatsApp dan password admin</p>
+            <br>
+            <p>Semua perubahan langsung tersimpan dan tampil di website.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">📱</span> WhatsApp Aktif</div>
+          <p style="font-size:0.9rem;color:var(--text-muted);">Nomor WA: <strong id="dash-wa-num" style="color:var(--charcoal);">—</strong></p>
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;">Ganti nomor di menu Pengaturan</p>
+        </div>
+      </div>
+
+      <!-- HARGA -->
+      <div class="section-page" id="section-harga">
+        <div class="page-header">
+          <h1>💰 Harga Kamar</h1>
+          <p>Update harga sewa kamar AC dan Non-AC</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">❄️</span> Kamar AC</div>
+          <div class="field-group">
+            <label class="field-label">Harga per Bulan (contoh: Rp 1.800.000)</label>
+            <input class="field" id="inp-price-ac" type="text" placeholder="Rp 1.800.000">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Keterangan Tambahan (opsional)</label>
+            <input class="field" id="inp-note-ac" type="text" placeholder="contoh: sudah termasuk wifi">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">🌀</span> Kamar Non-AC</div>
+          <div class="field-group">
+            <label class="field-label">Harga per Bulan (contoh: Rp 1.200.000)</label>
+            <input class="field" id="inp-price-nonac" type="text" placeholder="Rp 1.200.000">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Keterangan Tambahan (opsional)</label>
+            <input class="field" id="inp-note-nonac" type="text" placeholder="contoh: listrik termasuk">
+          </div>
+        </div>
+        <button class="btn btn-save" onclick="saveHarga()">💾 Simpan Harga</button>
+      </div>
+
+      <!-- FASILITAS -->
+      <div class="section-page" id="section-fasilitas">
+        <div class="page-header">
+          <h1>🏠 Fasilitas</h1>
+          <p>Kelola daftar fasilitas yang tersedia</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">✏️</span> Daftar Fasilitas</div>
+          <div style="display:grid;grid-template-columns:50px 1fr 2fr 120px 40px;gap:10px;padding:0 0 8px;font-size:0.75rem;font-weight:600;color:var(--text-muted);">
+            <span>Icon</span><span>Nama</span><span>Deskripsi</span><span>Badge</span><span></span>
+          </div>
+          <div id="facilities-editor"></div>
+          <button class="btn btn-add" style="margin-top:12px;" onclick="addFacility()">+ Tambah Fasilitas</button>
+        </div>
+        <button class="btn btn-save" onclick="saveFasilitas()">💾 Simpan Fasilitas</button>
+      </div>
+
+      <!-- GALERI -->
+      <div class="section-page" id="section-galeri">
+        <div class="page-header">
+          <h1>🖼️ Galeri & Foto</h1>
+          <p>Upload foto kamar dan area kost</p>
+        </div>
+        
+        <div class="tab-buttons">
+          <button class="tab-btn active" onclick="switchTab('tab-hero')">Foto Utama (Hero)</button>
+          <button class="tab-btn" onclick="switchTab('tab-ac')">Kamar AC</button>
+          <button class="tab-btn" onclick="switchTab('tab-nonac')">Kamar Non-AC</button>
+          <button class="tab-btn" onclick="switchTab('tab-galeri')">Galeri Umum</button>
+        </div>
+
+        <div id="tab-hero" class="tab-content active">
+          <div class="card">
+            <div class="card-title"><span class="emoji">🏠</span> Foto Tampak Depan & Hero Section</div>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;">Upload 3 foto untuk ditampilkan di bagian atas website (hero section)</p>
+            <div id="upload-hero"></div>
+          </div>
+        </div>
+        <div id="tab-ac" class="tab-content">
+          <div class="card">
+            <div class="card-title"><span class="emoji">❄️</span> Foto Kamar AC</div>
+            <div id="upload-ac"></div>
+          </div>
+        </div>
+        <div id="tab-nonac" class="tab-content">
+          <div class="card">
+            <div class="card-title"><span class="emoji">🌀</span> Foto Kamar Non-AC</div>
+            <div id="upload-nonac"></div>
+          </div>
+        </div>
+        <div id="tab-galeri" class="tab-content">
+          <div class="card">
+            <div class="card-title"><span class="emoji">🖼️</span> Foto Galeri Umum</div>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;">Foto untuk section galeri di website (kamar mandi, area bersama, dll)</p>
+            <div id="upload-galeri"></div>
+          </div>
+        </div>
+
+        <div class="card" style="background:#FFF8E1;border:1px solid #FFE082;">
+          <div class="card-title" style="color:#856404;"><span class="emoji">💡</span> Tips Upload Foto</div>
+          <ul style="font-size:0.82rem;color:#856404;line-height:2;padding-left:18px;">
+            <li>Gunakan foto landscape (horizontal) untuk tampilan terbaik</li>
+            <li>Ukuran minimal 800x600 piksel agar tidak pecah</li>
+            <li>Format JPG atau PNG, max 5MB per foto</li>
+            <li>Pastikan pencahayaan terang dan ruangan rapi sebelum foto</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- PENGATURAN -->
+      <div class="section-page" id="section-pengaturan">
+        <div class="page-header">
+          <h1>⚙️ Pengaturan</h1>
+          <p>Konfigurasi website dan akun admin</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">📱</span> Nomor WhatsApp</div>
+          <div class="field-group">
+            <label class="field-label">Nomor WA (format: 628xxxxxxxxx, tanpa + atau spasi)</label>
+            <input class="field" id="inp-wa" type="text" placeholder="628123456789">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Nama Pemilik / Kontak</label>
+            <input class="field" id="inp-contact-name" type="text" placeholder="Pak/Bu ...">
+          </div>
+          <button class="btn btn-save" onclick="saveWA()">💾 Simpan Nomor WA</button>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">🔐</span> Ganti Password Admin</div>
+          <div class="form-row">
+            <div class="field-group">
+              <label class="field-label">Password Baru</label>
+              <input class="field" id="inp-new-pass" type="password" placeholder="••••••••">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Konfirmasi Password</label>
+              <input class="field" id="inp-confirm-pass" type="password" placeholder="••••••••">
+            </div>
+          </div>
+          <button class="btn btn-save" onclick="changePassword()">🔐 Ganti Password</button>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="emoji">🌐</span> Info SEO Website</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.8;">
+            <p>Website ini sudah dioptimasi untuk pencarian Google dengan:</p>
+            <p>🔹 Kata kunci: kost bangka raya, kos bangka raya, kost jakarta selatan, dll</p>
+            <p>🔹 Structured data untuk Google Local Business</p>
+            <p>🔹 Meta description yang informatif</p>
+            <p>🔹 Mobile-friendly dan loading cepat</p>
+            <br>
+            <p><strong>Tips agar muncul di Google:</strong></p>
+            <p>1. Daftarkan di <a href="https://business.google.com" target="_blank" style="color:var(--sage-dark);">Google Business Profile</a> (gratis)</p>
+            <p>2. Minta penghuni/teman untuk review di Google Maps</p>
+            <p>3. Pasang di OLX, Mamikos, Kost.com sebagai backlink</p>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ============================================================
+  // AUTH
+  // ============================================================
+  const DEFAULT_CREDENTIALS = { user: 'admin', pass: 'admin123' };
+
+  function getCredentials() {
+    try {
+      const c = localStorage.getItem('kbr_admin_creds');
+      return c ? JSON.parse(c) : DEFAULT_CREDENTIALS;
+    } catch { return DEFAULT_CREDENTIALS; }
+  }
+
+  function doLogin() {
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    const creds = getCredentials();
+    if (u === creds.user && p === creds.pass) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-screen').style.display = 'block';
+      loadAdminData();
+    } else {
+      document.getElementById('login-error').style.display = 'block';
+    }
+  }
+
+  function doLogout() {
+    document.getElementById('admin-screen').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-error').style.display = 'none';
+  }
+
+  function changePassword() {
+    const np = document.getElementById('inp-new-pass').value;
+    const cp = document.getElementById('inp-confirm-pass').value;
+    if (!np) return showToast('❌ Masukkan password baru');
+    if (np !== cp) return showToast('❌ Password tidak cocok');
+    if (np.length < 6) return showToast('❌ Password minimal 6 karakter');
+    const creds = getCredentials();
+    creds.pass = np;
+    localStorage.setItem('kbr_admin_creds', JSON.stringify(creds));
+    document.getElementById('inp-new-pass').value = '';
+    document.getElementById('inp-confirm-pass').value = '';
+    showToast('✅ Password berhasil diganti');
+  }
+
+  // ============================================================
+  // DATA
+  // ============================================================
+  const DEFAULT_DATA = {
+    waNumber: '6281234567890',
+    contactName: '',
+    priceAC: 'Rp 1.800.000',
+    priceNonAC: 'Rp 1.200.000',
+    noteAC: 'Listrik token — isi token sendiri',
+    noteNonAC: 'Listrik sudah termasuk dalam harga sewa',
+    facilities: [
+      { icon: '🛵', name: 'Parkir Motor', desc: 'Area parkir khusus motor yang aman dan terlindungi.', badge: '' },
+      { icon: '🚿', name: 'Kamar Mandi Dalam', desc: 'Kamar mandi pribadi di setiap kamar untuk kenyamanan dan privasi maksimal.', badge: '' },
+      { icon: '📶', name: 'WiFi Kencang', desc: 'Internet WiFi cepat untuk WFH, streaming, dan aktivitas online lainnya.', badge: '' },
+      { icon: '⚡', name: 'Listrik Termasuk', desc: 'Listrik sudah termasuk dalam harga sewa untuk kamar Non-AC.', badge: 'Non-AC Only' },
+      { icon: '❄️', name: 'AC & Listrik Token', desc: 'Kamar AC dilengkapi sistem listrik token yang transparan.', badge: 'AC Only' },
+      { icon: '🌿', name: 'Lingkungan Asri', desc: 'Suasana tenang dan nyaman di lingkungan perumahan yang asri dan aman.', badge: '' }
+    ],
+    images: { hero: [], ac: [], nonac: [], galeri: [] }
+  };
+
+  function getData() {
+    try {
+      const saved = localStorage.getItem('kostBangkaRaya');
+      const d = saved ? JSON.parse(saved) : {};
+      return { ...DEFAULT_DATA, ...d, facilities: d.facilities || DEFAULT_DATA.facilities, images: d.images || DEFAULT_DATA.images };
+    } catch { return DEFAULT_DATA; }
+  }
+
+  function saveData(data) {
+    localStorage.setItem('kostBangkaRaya', JSON.stringify(data));
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ============================================================
+  // SECTIONS
+  // ============================================================
+  function showSection(name) {
+    document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('section-' + name).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (name === 'fasilitas') renderFacilitiesEditor();
+    if (name === 'galeri') renderAllUploaders();
+  }
+
+  // ============================================================
+  // LOAD ADMIN DATA
+  // ============================================================
+  function loadAdminData() {
+    const d = getData();
+    
+    // Dashboard
+    document.getElementById('dash-price-ac').textContent = d.priceAC || DEFAULT_DATA.priceAC;
+    document.getElementById('dash-price-nonac').textContent = d.priceNonAC || DEFAULT_DATA.priceNonAC;
+    document.getElementById('dash-wa-num').textContent = d.waNumber || DEFAULT_DATA.waNumber;
+
+    // Harga
+    document.getElementById('inp-price-ac').value = d.priceAC || DEFAULT_DATA.priceAC;
+    document.getElementById('inp-price-nonac').value = d.priceNonAC || DEFAULT_DATA.priceNonAC;
+    document.getElementById('inp-note-ac').value = d.noteAC || DEFAULT_DATA.noteAC;
+    document.getElementById('inp-note-nonac').value = d.noteNonAC || DEFAULT_DATA.noteNonAC;
+
+    // Pengaturan
+    document.getElementById('inp-wa').value = d.waNumber || DEFAULT_DATA.waNumber;
+    document.getElementById('inp-contact-name').value = d.contactName || '';
+  }
+
+  // ============================================================
+  // SAVE HARGA
+  // ============================================================
+  function saveHarga() {
+    const d = getData();
+    d.priceAC = document.getElementById('inp-price-ac').value.trim() || d.priceAC;
+    d.priceNonAC = document.getElementById('inp-price-nonac').value.trim() || d.priceNonAC;
+    d.noteAC = document.getElementById('inp-note-ac').value.trim();
+    d.noteNonAC = document.getElementById('inp-note-nonac').value.trim();
+    saveData(d);
+    document.getElementById('dash-price-ac').textContent = d.priceAC;
+    document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
+    showToast('✅ Harga berhasil disimpan!');
+  }
+
+  // ============================================================
+  // SAVE WA
+  // ============================================================
+  function saveWA() {
+    const d = getData();
+    d.waNumber = document.getElementById('inp-wa').value.trim() || d.waNumber;
+    d.contactName = document.getElementById('inp-contact-name').value.trim();
+    saveData(d);
+    document.getElementById('dash-wa-num').textContent = d.waNumber;
+    showToast('✅ Nomor WhatsApp disimpan!');
+  }
+
+  // ============================================================
+  // FASILITAS EDITOR
+  // ============================================================
+  let tempFacilities = [];
+
+  function renderFacilitiesEditor() {
+    const d = getData();
+    tempFacilities = JSON.parse(JSON.stringify(d.facilities));
+    const container = document.getElementById('facilities-editor');
+    container.innerHTML = '';
+    tempFacilities.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.className = 'facility-row';
+      row.innerHTML = `
+        <input class="emoji-input field" value="${f.icon}" onchange="tempFacilities[${i}].icon=this.value" maxlength="4">
+        <input class="field" value="${f.name}" onchange="tempFacilities[${i}].name=this.value" placeholder="Nama fasilitas">
+        <input class="field" value="${f.desc}" onchange="tempFacilities[${i}].desc=this.value" placeholder="Deskripsi">
+        <select class="badge-select field" onchange="tempFacilities[${i}].badge=this.value">
+          <option value="" ${!f.badge?'selected':''}>Semua</option>
+          <option value="AC Only" ${f.badge==='AC Only'?'selected':''}>AC Only</option>
+          <option value="Non-AC Only" ${f.badge==='Non-AC Only'?'selected':''}>Non-AC Only</option>
+        </select>
+        <button class="btn btn-danger" onclick="removeFacility(${i})" style="padding:8px 10px;">🗑️</button>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function addFacility() {
+    tempFacilities.push({ icon: '✨', name: 'Fasilitas Baru', desc: 'Deskripsi fasilitas', badge: '' });
+    renderFacilitiesEditorFromTemp();
+  }
+
+  function removeFacility(i) {
+    tempFacilities.splice(i, 1);
+    renderFacilitiesEditorFromTemp();
+  }
+
+  function renderFacilitiesEditorFromTemp() {
+    const container = document.getElementById('facilities-editor');
+    container.innerHTML = '';
+    tempFacilities.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.className = 'facility-row';
+      row.innerHTML = `
+        <input class="emoji-input field" value="${f.icon}" oninput="tempFacilities[${i}].icon=this.value" maxlength="4">
+        <input class="field" value="${f.name}" oninput="tempFacilities[${i}].name=this.value" placeholder="Nama fasilitas">
+        <input class="field" value="${f.desc}" oninput="tempFacilities[${i}].desc=this.value" placeholder="Deskripsi">
+        <select class="badge-select field" onchange="tempFacilities[${i}].badge=this.value">
+          <option value="" ${!f.badge?'selected':''}>Semua</option>
+          <option value="AC Only" ${f.badge==='AC Only'?'selected':''}>AC Only</option>
+          <option value="Non-AC Only" ${f.badge==='Non-AC Only'?'selected':''}>Non-AC Only</option>
+        </select>
+        <button class="btn btn-danger" onclick="removeFacility(${i})" style="padding:8px 10px;">🗑️</button>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function saveFasilitas() {
+    const d = getData();
+    // collect current values from inputs
+    const rows = document.querySelectorAll('.facility-row');
+    rows.forEach((row, i) => {
+      const inputs = row.querySelectorAll('input, select');
+      if (tempFacilities[i]) {
+        tempFacilities[i].icon = inputs[0].value;
+        tempFacilities[i].name = inputs[1].value;
+        tempFacilities[i].desc = inputs[2].value;
+        tempFacilities[i].badge = inputs[3].value;
+      }
+    });
+    d.facilities = tempFacilities;
+    saveData(d);
+    showToast('✅ Fasilitas berhasil disimpan!');
+  }
+
+  // ============================================================
+  // IMAGE UPLOADERS
+  // ============================================================
+  function renderAllUploaders() {
+    renderUploader('upload-hero', 'hero', 3);
+    renderUploader('upload-ac', 'ac', 6);
+    renderUploader('upload-nonac', 'nonac', 6);
+    renderUploader('upload-galeri', 'galeri', 8);
+  }
+
+  function renderUploader(containerId, key, max) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const d = getData();
+    const images = (d.images && d.images[key]) || [];
+    
+    container.innerHTML = `
+      <div class="img-upload-area" onclick="document.getElementById('file-${key}').click()">
+        <input type="file" id="file-${key}" accept="image/*" multiple onchange="handleUpload(event,'${key}',${max})">
+        <div class="upload-icon">📷</div>
+        <p><span class="upload-label">Klik untuk upload</span> atau drag & drop</p>
+        <p>JPG, PNG • Max 5MB per foto • Maks ${max} foto</p>
+      </div>
+      <div class="images-preview" id="preview-${key}"></div>
+    `;
+    renderPreview(key, images);
+  }
+
+  function renderPreview(key, images) {
+    const preview = document.getElementById('preview-' + key);
+    if (!preview) return;
+    preview.innerHTML = '';
+    images.forEach((src, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'img-thumb';
+      thumb.innerHTML = `<img src="${src}"><button class="img-remove" onclick="removeImage('${key}',${i})">✕</button>`;
+      preview.appendChild(thumb);
+    });
+    if (images.length === 0) {
+      preview.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:12px 0;">Belum ada foto. Upload foto di atas.</p>';
+    }
+  }
+
+  function handleUpload(event, key, max) {
+    const files = Array.from(event.target.files);
+    const d = getData();
+    if (!d.images) d.images = {};
+    if (!d.images[key]) d.images[key] = [];
+    
+    const remaining = max - d.images[key].length;
+    const toProcess = files.slice(0, remaining);
+    
+    if (files.length > remaining) showToast(`⚠️ Hanya ${remaining} foto lagi yang bisa ditambahkan`);
+    
+    let processed = 0;
+    toProcess.forEach(file => {
+      if (file.size > 5 * 1024 * 1024) { showToast('❌ File terlalu besar (max 5MB)'); return; }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        d.images[key].push(e.target.result);
+        processed++;
+        if (processed === toProcess.length) {
+          saveData(d);
+          renderPreview(key, d.images[key]);
+          showToast(`✅ ${processed} foto berhasil diupload!`);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    event.target.value = '';
+  }
+
+  function removeImage(key, index) {
+    const d = getData();
+    if (d.images && d.images[key]) {
+      d.images[key].splice(index, 1);
+      saveData(d);
+      renderPreview(key, d.images[key]);
+      showToast('🗑️ Foto dihapus');
+    }
+  }
+
+  // ============================================================
+  // TABS
+  // ============================================================
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+    renderAllUploaders();
+  }
+
+  // Auto-login check (skip if already noted)
+  document.getElementById('login-pass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+</body>
+</html>
