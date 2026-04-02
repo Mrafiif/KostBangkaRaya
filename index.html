@@ -780,53 +780,56 @@
 
 <script>
   // ============================================================
-  // DATA STORAGE (localStorage sebagai database sederhana)
+  // CONFIG — Ganti URL ini setelah setup Google Apps Script
   // ============================================================
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDsfTLMWmcFUM0J6uGyG26dX42vsk0Ne5TlfXeln5IM-OhwApTbQgzo5UIbVwEsS2l1w/exec';
+
   const DEFAULT_DATA = {
-    waNumber: '6285695284131', // GANTI dengan nomor WA Anda
+    waNumber: '6285695284131',
     priceAC: 'Rp 1.800.000',
     priceNonAC: 'Rp 1.200.000',
     facilities: [
-      { icon: '🛵', name: 'Parkir Motor', desc: 'Area parkir khusus motor yang aman dan terlindungi.' },
-      { icon: '🚿', name: 'Kamar Mandi Dalam', desc: 'Kamar mandi pribadi di setiap kamar untuk kenyamanan dan privasi maksimal.' },
-      { icon: '📶', name: 'WiFi Kencang', desc: 'Internet WiFi cepat untuk WFH, streaming, dan aktivitas online lainnya.' },
+      { icon: '🛵', name: 'Parkir Motor', desc: 'Area parkir khusus motor yang aman dan terlindungi.', badge: '' },
+      { icon: '🚿', name: 'Kamar Mandi Dalam', desc: 'Kamar mandi pribadi di setiap kamar untuk kenyamanan dan privasi maksimal.', badge: '' },
+      { icon: '📶', name: 'WiFi Kencang', desc: 'Internet WiFi cepat untuk WFH, streaming, dan aktivitas online lainnya.', badge: '' },
       { icon: '⚡', name: 'Listrik Termasuk', desc: 'Listrik sudah termasuk dalam harga sewa untuk kamar Non-AC.', badge: 'Non-AC Only', badgeColor: '#FEF3E2', badgeText: '#C47F1E' },
-      { icon: '❄️', name: 'AC & Listrik Token', desc: 'Kamar AC dilengkapi sistem listrik token yang transparan — bayar sesuai pemakaian sendiri.', badge: 'AC Only', badgeColor: '#E8F4FD', badgeText: '#1E7DC4' },
-      { icon: '🌿', name: 'Lingkungan Asri', desc: 'Suasana tenang dan nyaman di lingkungan perumahan yang asri dan aman.' }
+      { icon: '❄️', name: 'AC & Listrik Token', desc: 'Kamar AC dilengkapi sistem listrik token yang transparan.', badge: 'AC Only', badgeColor: '#E8F4FD', badgeText: '#1E7DC4' },
+      { icon: '🌿', name: 'Lingkungan Asri', desc: 'Suasana tenang dan nyaman di lingkungan perumahan yang asri dan aman.', badge: '' }
     ]
   };
 
-  function getData() {
+  // ============================================================
+  // LOAD DATA DARI GOOGLE SHEETS (sinkron semua perangkat)
+  // ============================================================
+  async function loadSiteData() {
+    let data = DEFAULT_DATA;
     try {
-      const saved = localStorage.getItem('kostBangkaRaya');
-      return saved ? JSON.parse(saved) : DEFAULT_DATA;
-    } catch { return DEFAULT_DATA; }
+      if (SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+        const res = await fetch(SCRIPT_URL + '?action=getData');
+        const json = await res.json();
+        if (json.success && json.data) data = { ...DEFAULT_DATA, ...json.data };
+      }
+    } catch(e) {
+      console.warn('Gagal load dari server, pakai data default.');
+    }
+    applyData(data);
   }
 
-  // ============================================================
-  // LOAD DATA FROM STORAGE
-  // ============================================================
-  function loadSiteData() {
-    const data = getData();
-    
-    // Update prices
+  function applyData(data) {
     const priceAC = document.getElementById('price-ac');
     const priceNonAC = document.getElementById('price-nonac');
-    if (priceAC) priceAC.innerHTML = `${data.priceAC || DEFAULT_DATA.priceAC} <span>/ bulan</span>`;
-    if (priceNonAC) priceNonAC.innerHTML = `${data.priceNonAC || DEFAULT_DATA.priceNonAC} <span>/ bulan</span>`;
+    if (priceAC) priceAC.innerHTML = (data.priceAC || DEFAULT_DATA.priceAC) + ' <span>/ bulan</span>';
+    if (priceNonAC) priceNonAC.innerHTML = (data.priceNonAC || DEFAULT_DATA.priceNonAC) + ' <span>/ bulan</span>';
 
-    // Update WA number for all buttons
     const waNum = data.waNumber || DEFAULT_DATA.waNumber;
-    const waLinks = document.querySelectorAll('.wa-link');
-    waLinks.forEach(link => {
+    document.querySelectorAll('.wa-link').forEach(function(link) {
       const type = link.getAttribute('data-type');
-      const msg = encodeURIComponent(`Halo, saya tertarik dengan Kamar ${type} di Kost Bangka Raya. Apakah masih tersedia? Terima kasih 🙏`);
-      link.href = `https://wa.me/${waNum}?text=${msg}`;
+      const msg = encodeURIComponent('Halo, saya tertarik dengan Kamar ' + type + ' di Kost Bangka Raya. Apakah masih tersedia? Terima kasih 🙏');
+      link.href = 'https://wa.me/' + waNum + '?text=' + msg;
     });
-
     const generalMsg = encodeURIComponent('Halo, saya ingin info lebih lanjut tentang Kost Bangka Raya. Terima kasih 🙏');
-    const generalWaUrl = `https://wa.me/${waNum}?text=${generalMsg}`;
-    ['hero-wa-btn','nav-wa-btn','cta-wa-btn','wa-float','footer-wa'].forEach(id => {
+    const generalWaUrl = 'https://wa.me/' + waNum + '?text=' + generalMsg;
+    ['hero-wa-btn','nav-wa-btn','cta-wa-btn','wa-float','footer-wa'].forEach(function(id) {
       const el = document.getElementById(id);
       if (el) el.href = generalWaUrl;
     });
@@ -834,9 +837,8 @@
 
   loadSiteData();
 
-  // Smooth scroll
-  document.querySelectorAll('a[href^="#"]').forEach(a => {
-    a.addEventListener('click', e => {
+  document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+    a.addEventListener('click', function(e) {
       const target = document.querySelector(a.getAttribute('href'));
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
     });
