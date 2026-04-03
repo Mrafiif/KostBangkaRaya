@@ -504,7 +504,7 @@
 
 <script>
   // ─── AUTH ────────────────────────────────────────────────────
-  const DEFAULT_CREDENTIALS = { user: 'admin', pass: 'admin123' };
+  const DEFAULT_CREDENTIALS = { user:'admin', pass:'admin123' };
   function getCredentials() {
     try { var c = localStorage.getItem('kbr_creds'); return c ? JSON.parse(c) : DEFAULT_CREDENTIALS; }
     catch(e) { return DEFAULT_CREDENTIALS; }
@@ -514,7 +514,7 @@
     var p = document.getElementById('login-pass').value;
     var creds = getCredentials();
     if (u === creds.user && p === creds.pass) {
-      document.getElementById('login-error').style.display = 'none';
+      document.getElementById('login-error').style.display  = 'none';
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('admin-screen').style.display = 'block';
       await loadAdminData();
@@ -536,55 +536,47 @@
     if (np.length < 6) return showToast('❌ Minimal 6 karakter');
     var creds = getCredentials(); creds.pass = np;
     localStorage.setItem('kbr_creds', JSON.stringify(creds));
-    document.getElementById('inp-new-pass').value = '';
+    document.getElementById('inp-new-pass').value  = '';
     document.getElementById('inp-confirm-pass').value = '';
     showToast('✅ Password berhasil diganti');
   }
 
-  // ─── CONFIG ──────────────────────────────────────────────────
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycGOI5dQLvOP1EdxEfxDF_SOxC6ErNB--4ZguDsaqbw2cMc2wmpl2YdYbEaBDXnqqq/exec';
+  // ─── CONFIG JSONBin ──────────────────────────────────────────
+  const BIN_ID  = '69cf5c7b36566621a8757ca4';
+  const API_KEY = '$2a$10$4VmLWSsrPxNrG4XunB3mu.PBFf3OOpBIIKeVPZraTsX8O4rMPR7pu';
+  const BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
 
   const DEFAULT_DATA = {
-    waNumber: '6281234567890', contactName: '',
-    priceAC: 'Rp 1.800.000', priceNonAC: 'Rp 1.200.000',
-    noteAC: 'Listrik token — isi token sendiri',
-    noteNonAC: 'Listrik sudah termasuk dalam harga sewa',
-    facilities: [
-      { icon: '🛵', name: 'Parkir Motor',       desc: 'Area parkir khusus motor yang aman.', badge: '' },
-      { icon: '🚿', name: 'Kamar Mandi Dalam',  desc: 'Kamar mandi pribadi di setiap kamar.', badge: '' },
-      { icon: '📶', name: 'WiFi Kencang',        desc: 'Internet WiFi cepat untuk WFH dan streaming.', badge: '' },
-      { icon: '⚡', name: 'Listrik Termasuk',    desc: 'Listrik sudah termasuk untuk kamar Non-AC.', badge: 'Non-AC Only' },
-      { icon: '❄️', name: 'AC & Listrik Token',  desc: 'Token isi sendiri, transparan sesuai pemakaian.', badge: 'AC Only' },
-      { icon: '🌿', name: 'Lingkungan Asri',     desc: 'Suasana tenang dan nyaman.', badge: '' }
+    waNumber:'6285695284131', contactName:'',
+    priceAC:'Rp 1.800.000', priceNonAC:'Rp 1.200.000',
+    noteAC:'Listrik token — isi token sendiri',
+    noteNonAC:'Listrik sudah termasuk dalam harga sewa',
+    facilities:[
+      { icon:'🛵', name:'Parkir Motor',       desc:'Area parkir khusus motor yang aman dan terlindungi.',         badge:'' },
+      { icon:'🚿', name:'Kamar Mandi Dalam',  desc:'Kamar mandi pribadi di setiap kamar untuk kenyamanan maksimal.', badge:'' },
+      { icon:'📶', name:'WiFi Kencang',        desc:'Internet WiFi cepat untuk WFH, streaming, dan aktivitas online.', badge:'' },
+      { icon:'⚡', name:'Listrik Termasuk',    desc:'Listrik sudah termasuk dalam harga sewa untuk kamar Non-AC.', badge:'Non-AC Only' },
+      { icon:'❄️', name:'AC & Listrik Token',  desc:'Kamar AC dilengkapi sistem listrik token yang transparan.',   badge:'AC Only' },
+      { icon:'🌿', name:'Lingkungan Asri',     desc:'Suasana tenang dan nyaman di lingkungan perumahan yang asri.', badge:'' }
     ],
-    images: { hero:[], ac:[], nonac:[], galeri:[] }
+    images:{ hero:[], ac:[], nonac:[], galeri:[] }
   };
 
   var _cachedData = null;
 
-  // Format harga: pastikan selalu "Rp 1.800.000"
-  function formatPrice(val) {
-    if (!val) return '';
-    var s = String(val).trim();
-    if (s.toLowerCase().startsWith('rp')) return s;
-    var num = parseInt(s.replace(/[^0-9]/g, ''));
-    return isNaN(num) ? s : 'Rp ' + num.toLocaleString('id-ID');
-  }
-
-  // ─── READ dari Google Sheets ─────────────────────────────────
+  // ─── READ dari JSONBin ───────────────────────────────────────
   async function getData() {
     if (_cachedData) return _cachedData;
     try {
       showToast('⏳ Memuat data...');
-      var res = await fetch(SCRIPT_URL + '?action=getData&t=' + Date.now());
+      var res  = await fetch(BIN_URL + '/latest', {
+        headers: { 'X-Master-Key': API_KEY }
+      });
       var json = await res.json();
-      if (json.success && json.data) {
-        var d = Object.assign({}, DEFAULT_DATA, json.data);
-        d.priceAC    = formatPrice(json.data.priceAC)    || DEFAULT_DATA.priceAC;
-        d.priceNonAC = formatPrice(json.data.priceNonAC) || DEFAULT_DATA.priceNonAC;
-        d.facilities = json.data.facilities || DEFAULT_DATA.facilities;
-        d.images     = json.data.images     || DEFAULT_DATA.images;
-        _cachedData  = d;
+      if (json.record) {
+        _cachedData = Object.assign({}, DEFAULT_DATA, json.record,
+          { facilities: json.record.facilities || DEFAULT_DATA.facilities,
+             images:     json.record.images     || DEFAULT_DATA.images });
         return _cachedData;
       }
     } catch(e) { console.warn('Gagal load:', e); }
@@ -592,18 +584,18 @@
     return _cachedData;
   }
 
-  // ─── WRITE ke Google Sheets ──────────────────────────────────
+  // ─── WRITE ke JSONBin ────────────────────────────────────────
   async function saveData(data) {
     _cachedData = data;
     try {
-      var res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(data)
+      var res  = await fetch(BIN_URL, {
+        method:  'PUT',
+        headers: { 'Content-Type':'application/json', 'X-Master-Key': API_KEY },
+        body:    JSON.stringify(data)
       });
       var json = await res.json();
-      if (json.success) return true;
-      throw new Error('Server returned success:false');
+      if (json.record) return true;
+      throw new Error('No record in response');
     } catch(e) {
       console.error('Gagal simpan:', e);
       showToast('❌ Gagal tersimpan! Cek koneksi.');
@@ -628,11 +620,11 @@
     if (name === 'dashboard') await loadAdminData();
   }
 
-  // ─── LOAD DASHBOARD ──────────────────────────────────────────
+  // ─── DASHBOARD ───────────────────────────────────────────────
   async function loadAdminData() {
-    var d = await getData();
+    var d  = await getData();
     var el = document.getElementById('sync-status');
-    if (el) el.textContent = '🟢 Terhubung ke Google Sheets — data sinkron semua perangkat';
+    if (el) el.textContent = '🟢 Terhubung ke JSONBin — sinkron semua perangkat';
     document.getElementById('dash-price-ac').textContent    = d.priceAC    || DEFAULT_DATA.priceAC;
     document.getElementById('dash-price-nonac').textContent = d.priceNonAC || DEFAULT_DATA.priceNonAC;
     document.getElementById('dash-wa-num').textContent      = d.waNumber   || DEFAULT_DATA.waNumber;
@@ -647,11 +639,8 @@
   // ─── SIMPAN HARGA ────────────────────────────────────────────
   async function saveHarga() {
     var d = await getData();
-    var rawAC    = document.getElementById('inp-price-ac').value.trim();
-    var rawNonAC = document.getElementById('inp-price-nonac').value.trim();
-    // Pastikan format "Rp x.xxx.xxx" saat disimpan
-    d.priceAC    = formatPrice(rawAC)    || d.priceAC;
-    d.priceNonAC = formatPrice(rawNonAC) || d.priceNonAC;
+    d.priceAC    = document.getElementById('inp-price-ac').value.trim()    || d.priceAC;
+    d.priceNonAC = document.getElementById('inp-price-nonac').value.trim() || d.priceNonAC;
     d.noteAC     = document.getElementById('inp-note-ac').value.trim();
     d.noteNonAC  = document.getElementById('inp-note-nonac').value.trim();
     var ok = await saveData(d);
@@ -659,9 +648,6 @@
       _cachedData = null;
       document.getElementById('dash-price-ac').textContent    = d.priceAC;
       document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
-      // Update field input juga supaya terformat rapi
-      document.getElementById('inp-price-ac').value    = d.priceAC;
-      document.getElementById('inp-price-nonac').value = d.priceNonAC;
       showToast('✅ Harga tersimpan & sinkron ke semua perangkat!');
     }
   }
@@ -697,23 +683,22 @@
         '<input class="field" value="' + f.name + '" oninput="tempFacilities[' + i + '].name=this.value">' +
         '<input class="field" value="' + f.desc + '" oninput="tempFacilities[' + i + '].desc=this.value">' +
         '<select class="badge-select field" onchange="tempFacilities[' + i + '].badge=this.value">' +
-          '<option value="" '     + (!f.badge ? 'selected' : '') + '>Semua</option>' +
-          '<option value="AC Only" '    + (f.badge === 'AC Only'    ? 'selected' : '') + '>AC Only</option>' +
-          '<option value="Non-AC Only" '+ (f.badge === 'Non-AC Only'? 'selected' : '') + '>Non-AC Only</option>' +
+          '<option value="" '          + (!f.badge              ? 'selected' : '') + '>Semua</option>' +
+          '<option value="AC Only" '   + (f.badge==='AC Only'   ? 'selected' : '') + '>AC Only</option>' +
+          '<option value="Non-AC Only"'+ (f.badge==='Non-AC Only'?'selected' : '') + '>Non-AC Only</option>' +
         '</select>' +
         '<button class="btn btn-danger" onclick="removeFacility(' + i + ')" style="padding:8px 10px;">🗑️</button>';
       container.appendChild(row);
     });
   }
   function addFacility() {
-    tempFacilities.push({ icon: '✨', name: 'Fasilitas Baru', desc: 'Deskripsi fasilitas', badge: '' });
+    tempFacilities.push({ icon:'✨', name:'Fasilitas Baru', desc:'Deskripsi fasilitas', badge:'' });
     renderFacilitiesEditorFromTemp();
   }
   function removeFacility(i) { tempFacilities.splice(i,1); renderFacilitiesEditorFromTemp(); }
   async function saveFasilitas() {
     var d = await getData();
-    var rows = document.querySelectorAll('.facility-row');
-    rows.forEach(function(row, i) {
+    document.querySelectorAll('.facility-row').forEach(function(row, i) {
       var inp = row.querySelectorAll('input, select');
       if (tempFacilities[i]) {
         tempFacilities[i].icon  = inp[0].value;
@@ -729,10 +714,10 @@
 
   // ─── GALERI / FOTO ───────────────────────────────────────────
   async function renderAllUploaders() {
-    await renderUploader('upload-hero','hero',3);
-    await renderUploader('upload-ac','ac',6);
-    await renderUploader('upload-nonac','nonac',6);
-    await renderUploader('upload-galeri','galeri',8);
+    await renderUploader('upload-hero',   'hero',   3);
+    await renderUploader('upload-ac',     'ac',     6);
+    await renderUploader('upload-nonac',  'nonac',  6);
+    await renderUploader('upload-galeri', 'galeri', 8);
   }
   async function renderUploader(cId, key, max) {
     var container = document.getElementById(cId);
@@ -751,9 +736,11 @@
   function renderPreview(key, images) {
     var preview = document.getElementById('preview-' + key);
     if (!preview) return;
-    preview.innerHTML = images.length === 0
-      ? '<p style="font-size:0.78rem;color:var(--text-muted);padding:12px 0;">Belum ada foto.</p>'
-      : '';
+    if (!images || images.length === 0) {
+      preview.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:12px 0;">Belum ada foto.</p>';
+      return;
+    }
+    preview.innerHTML = '';
     images.forEach(function(src, i) {
       var thumb = document.createElement('div');
       thumb.className = 'img-thumb';
