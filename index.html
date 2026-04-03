@@ -779,15 +779,14 @@
 </a>
 
 <script>
-  // ============================================================
-  // CONFIG — Ganti URL ini setelah setup Google Apps Script
-  // ============================================================
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycGOI5dQLvOP1EdxEfxDF_SOxC6ErNB--4ZguDsaqbw2cMc2wmpl2YdYbEaBDXnqqq/exec';
 
   const DEFAULT_DATA = {
     waNumber: '6285695284131',
     priceAC: 'Rp 1.800.000',
     priceNonAC: 'Rp 1.200.000',
+    noteAC: 'Listrik token — isi token sendiri',
+    noteNonAC: 'Listrik sudah termasuk dalam harga sewa',
     facilities: [
       { icon: '🛵', name: 'Parkir Motor', desc: 'Area parkir khusus motor yang aman dan terlindungi.', badge: '' },
       { icon: '🚿', name: 'Kamar Mandi Dalam', desc: 'Kamar mandi pribadi di setiap kamar untuk kenyamanan dan privasi maksimal.', badge: '' },
@@ -798,37 +797,51 @@
     ]
   };
 
-  // ============================================================
-  // LOAD DATA DARI GOOGLE SHEETS (sinkron semua perangkat)
-  // ============================================================
+  // Format angka jadi "Rp 1.800.000" kalau datanya angka mentah
+  function formatPrice(val) {
+    if (!val) return DEFAULT_DATA.priceAC;
+    var s = String(val).trim();
+    // Kalau sudah ada "Rp", langsung pakai
+    if (s.toLowerCase().startsWith('rp')) return s;
+    // Kalau angka murni, format jadi Rp x.xxx.xxx
+    var num = parseInt(s.replace(/[^0-9]/g, ''));
+    if (!isNaN(num)) return 'Rp ' + num.toLocaleString('id-ID');
+    return s;
+  }
+
   async function loadSiteData() {
-    let data = DEFAULT_DATA;
+    var data = DEFAULT_DATA;
     try {
-      const res = await fetch(SCRIPT_URL + '?action=getData&t=' + Date.now());
-      const json = await res.json();
-      if (json.success && json.data) data = { ...DEFAULT_DATA, ...json.data };
+      var res = await fetch(SCRIPT_URL + '?action=getData&t=' + Date.now());
+      var json = await res.json();
+      if (json.success && json.data) {
+        data = Object.assign({}, DEFAULT_DATA, json.data);
+        // Pastikan format harga benar
+        data.priceAC    = formatPrice(json.data.priceAC)    || DEFAULT_DATA.priceAC;
+        data.priceNonAC = formatPrice(json.data.priceNonAC) || DEFAULT_DATA.priceNonAC;
+      }
     } catch(e) {
-      console.warn('Gagal load dari Google Sheets, pakai data default.');
+      console.warn('Gagal load dari server:', e);
     }
     applyData(data);
   }
 
   function applyData(data) {
-    const priceAC = document.getElementById('price-ac');
-    const priceNonAC = document.getElementById('price-nonac');
-    if (priceAC) priceAC.innerHTML = (data.priceAC || DEFAULT_DATA.priceAC) + ' <span>/ bulan</span>';
+    var priceAC = document.getElementById('price-ac');
+    var priceNonAC = document.getElementById('price-nonac');
+    if (priceAC)    priceAC.innerHTML    = (data.priceAC    || DEFAULT_DATA.priceAC)    + ' <span>/ bulan</span>';
     if (priceNonAC) priceNonAC.innerHTML = (data.priceNonAC || DEFAULT_DATA.priceNonAC) + ' <span>/ bulan</span>';
 
-    const waNum = data.waNumber || DEFAULT_DATA.waNumber;
+    var waNum = data.waNumber || DEFAULT_DATA.waNumber;
     document.querySelectorAll('.wa-link').forEach(function(link) {
-      const type = link.getAttribute('data-type');
-      const msg = encodeURIComponent('Halo, saya tertarik dengan Kamar ' + type + ' di Kost Bangka Raya. Apakah masih tersedia? Terima kasih 🙏');
+      var type = link.getAttribute('data-type');
+      var msg = encodeURIComponent('Halo, saya tertarik dengan Kamar ' + type + ' di Kost Bangka Raya. Apakah masih tersedia? Terima kasih 🙏');
       link.href = 'https://wa.me/' + waNum + '?text=' + msg;
     });
-    const generalMsg = encodeURIComponent('Halo, saya ingin info lebih lanjut tentang Kost Bangka Raya. Terima kasih 🙏');
-    const generalWaUrl = 'https://wa.me/' + waNum + '?text=' + generalMsg;
+    var generalMsg = encodeURIComponent('Halo, saya ingin info lebih lanjut tentang Kost Bangka Raya. Terima kasih 🙏');
+    var generalWaUrl = 'https://wa.me/' + waNum + '?text=' + generalMsg;
     ['hero-wa-btn','nav-wa-btn','cta-wa-btn','wa-float','footer-wa'].forEach(function(id) {
-      const el = document.getElementById(id);
+      var el = document.getElementById(id);
       if (el) el.href = generalWaUrl;
     });
   }
@@ -837,7 +850,7 @@
 
   document.querySelectorAll('a[href^="#"]').forEach(function(a) {
     a.addEventListener('click', function(e) {
-      const target = document.querySelector(a.getAttribute('href'));
+      var target = document.querySelector(a.getAttribute('href'));
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
     });
   });
