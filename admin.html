@@ -503,23 +503,18 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ============================================================
-  // AUTH
-  // ============================================================
+  // ─── AUTH ────────────────────────────────────────────────────
   const DEFAULT_CREDENTIALS = { user: 'admin', pass: 'admin123' };
-
   function getCredentials() {
-    try {
-      const c = localStorage.getItem('kbr_admin_creds');
-      return c ? JSON.parse(c) : DEFAULT_CREDENTIALS;
-    } catch { return DEFAULT_CREDENTIALS; }
+    try { var c = localStorage.getItem('kbr_creds'); return c ? JSON.parse(c) : DEFAULT_CREDENTIALS; }
+    catch(e) { return DEFAULT_CREDENTIALS; }
   }
-
   async function doLogin() {
-    const u = document.getElementById('login-user').value.trim();
-    const p = document.getElementById('login-pass').value;
-    const creds = getCredentials();
+    var u = document.getElementById('login-user').value.trim();
+    var p = document.getElementById('login-pass').value;
+    var creds = getCredentials();
     if (u === creds.user && p === creds.pass) {
+      document.getElementById('login-error').style.display = 'none';
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('admin-screen').style.display = 'block';
       await loadAdminData();
@@ -527,339 +522,288 @@
       document.getElementById('login-error').style.display = 'block';
     }
   }
-
   function doLogout() {
     document.getElementById('admin-screen').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-pass').value = '';
-    document.getElementById('login-error').style.display = 'none';
+    _cachedData = null;
   }
-
   function changePassword() {
-    const np = document.getElementById('inp-new-pass').value;
-    const cp = document.getElementById('inp-confirm-pass').value;
+    var np = document.getElementById('inp-new-pass').value;
+    var cp = document.getElementById('inp-confirm-pass').value;
     if (!np) return showToast('❌ Masukkan password baru');
     if (np !== cp) return showToast('❌ Password tidak cocok');
-    if (np.length < 6) return showToast('❌ Password minimal 6 karakter');
-    const creds = getCredentials();
-    creds.pass = np;
-    localStorage.setItem('kbr_admin_creds', JSON.stringify(creds));
+    if (np.length < 6) return showToast('❌ Minimal 6 karakter');
+    var creds = getCredentials(); creds.pass = np;
+    localStorage.setItem('kbr_creds', JSON.stringify(creds));
     document.getElementById('inp-new-pass').value = '';
     document.getElementById('inp-confirm-pass').value = '';
     showToast('✅ Password berhasil diganti');
   }
 
-  // ============================================================
-  // DATA
-  // ============================================================
+  // ─── CONFIG ──────────────────────────────────────────────────
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycGOI5dQLvOP1EdxEfxDF_SOxC6ErNB--4ZguDsaqbw2cMc2wmpl2YdYbEaBDXnqqq/exec';
 
   const DEFAULT_DATA = {
-    waNumber: '6281234567890',
-    contactName: '',
-    priceAC: 'Rp 1.800.000',
-    priceNonAC: 'Rp 1.200.000',
+    waNumber: '6281234567890', contactName: '',
+    priceAC: 'Rp 1.800.000', priceNonAC: 'Rp 1.200.000',
     noteAC: 'Listrik token — isi token sendiri',
     noteNonAC: 'Listrik sudah termasuk dalam harga sewa',
     facilities: [
-      { icon: '🛵', name: 'Parkir Motor', desc: 'Area parkir khusus motor yang aman dan terlindungi.', badge: '' },
-      { icon: '🚿', name: 'Kamar Mandi Dalam', desc: 'Kamar mandi pribadi di setiap kamar untuk kenyamanan dan privasi maksimal.', badge: '' },
-      { icon: '📶', name: 'WiFi Kencang', desc: 'Internet WiFi cepat untuk WFH, streaming, dan aktivitas online lainnya.', badge: '' },
-      { icon: '⚡', name: 'Listrik Termasuk', desc: 'Listrik sudah termasuk dalam harga sewa untuk kamar Non-AC.', badge: 'Non-AC Only' },
-      { icon: '❄️', name: 'AC & Listrik Token', desc: 'Kamar AC dilengkapi sistem listrik token yang transparan.', badge: 'AC Only' },
-      { icon: '🌿', name: 'Lingkungan Asri', desc: 'Suasana tenang dan nyaman di lingkungan perumahan yang asri dan aman.', badge: '' }
+      { icon: '🛵', name: 'Parkir Motor',       desc: 'Area parkir khusus motor yang aman.', badge: '' },
+      { icon: '🚿', name: 'Kamar Mandi Dalam',  desc: 'Kamar mandi pribadi di setiap kamar.', badge: '' },
+      { icon: '📶', name: 'WiFi Kencang',        desc: 'Internet WiFi cepat untuk WFH dan streaming.', badge: '' },
+      { icon: '⚡', name: 'Listrik Termasuk',    desc: 'Listrik sudah termasuk untuk kamar Non-AC.', badge: 'Non-AC Only' },
+      { icon: '❄️', name: 'AC & Listrik Token',  desc: 'Token isi sendiri, transparan sesuai pemakaian.', badge: 'AC Only' },
+      { icon: '🌿', name: 'Lingkungan Asri',     desc: 'Suasana tenang dan nyaman.', badge: '' }
     ],
-    images: { hero: [], ac: [], nonac: [], galeri: [] }
+    images: { hero:[], ac:[], nonac:[], galeri:[] }
   };
 
-  let _cachedData = null;
+  var _cachedData = null;
 
+  // Format harga: pastikan selalu "Rp 1.800.000"
+  function formatPrice(val) {
+    if (!val) return '';
+    var s = String(val).trim();
+    if (s.toLowerCase().startsWith('rp')) return s;
+    var num = parseInt(s.replace(/[^0-9]/g, ''));
+    return isNaN(num) ? s : 'Rp ' + num.toLocaleString('id-ID');
+  }
+
+  // ─── READ dari Google Sheets ─────────────────────────────────
   async function getData() {
     if (_cachedData) return _cachedData;
     try {
       showToast('⏳ Memuat data...');
-      const res = await fetch(SCRIPT_URL + '?action=getData');
-      const json = await res.json();
+      var res = await fetch(SCRIPT_URL + '?action=getData&t=' + Date.now());
+      var json = await res.json();
       if (json.success && json.data) {
-        _cachedData = { ...DEFAULT_DATA, ...json.data,
-          facilities: json.data.facilities || DEFAULT_DATA.facilities,
-          images: json.data.images || DEFAULT_DATA.images
-        };
+        var d = Object.assign({}, DEFAULT_DATA, json.data);
+        d.priceAC    = formatPrice(json.data.priceAC)    || DEFAULT_DATA.priceAC;
+        d.priceNonAC = formatPrice(json.data.priceNonAC) || DEFAULT_DATA.priceNonAC;
+        d.facilities = json.data.facilities || DEFAULT_DATA.facilities;
+        d.images     = json.data.images     || DEFAULT_DATA.images;
+        _cachedData  = d;
         return _cachedData;
       }
-    } catch(e) {
-      console.warn('Gagal load dari server, pakai localStorage:', e);
-      try {
-        const saved = localStorage.getItem('kostBangkaRaya');
-        const d = saved ? JSON.parse(saved) : {};
-        _cachedData = { ...DEFAULT_DATA, ...d,
-          facilities: d.facilities || DEFAULT_DATA.facilities,
-          images: d.images || DEFAULT_DATA.images
-        };
-        return _cachedData;
-      } catch(e2) {}
-    }
-    _cachedData = { ...DEFAULT_DATA };
+    } catch(e) { console.warn('Gagal load:', e); }
+    _cachedData = JSON.parse(JSON.stringify(DEFAULT_DATA));
     return _cachedData;
   }
 
+  // ─── WRITE ke Google Sheets ──────────────────────────────────
   async function saveData(data) {
     _cachedData = data;
     try {
-      const res = await fetch(SCRIPT_URL, {
+      var res = await fetch(SCRIPT_URL, {
         method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(data)
       });
-      const json = await res.json();
-      if (!json.success) throw new Error('Server error');
+      var json = await res.json();
+      if (json.success) return true;
+      throw new Error('Server returned success:false');
     } catch(e) {
-      console.warn('Gagal simpan ke server, fallback localStorage:', e);
-      localStorage.setItem('kostBangkaRaya', JSON.stringify(data));
+      console.error('Gagal simpan:', e);
+      showToast('❌ Gagal tersimpan! Cek koneksi.');
+      return false;
     }
   }
 
   function showToast(msg) {
-    const t = document.getElementById('toast');
+    var t = document.getElementById('toast');
     t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
+    setTimeout(function(){ t.classList.remove('show'); }, 3500);
   }
 
-  // ============================================================
-  // SECTIONS
-  // ============================================================
+  // ─── NAVIGASI ────────────────────────────────────────────────
   async function showSection(name) {
-    document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.section-page').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
     document.getElementById('section-' + name).classList.add('active');
     event.currentTarget.classList.add('active');
     if (name === 'fasilitas') await renderFacilitiesEditor();
-    if (name === 'galeri') await renderAllUploaders();
+    if (name === 'galeri')    await renderAllUploaders();
     if (name === 'dashboard') await loadAdminData();
   }
 
-  // ============================================================
-  // LOAD ADMIN DATA
-  // ============================================================
+  // ─── LOAD DASHBOARD ──────────────────────────────────────────
   async function loadAdminData() {
-    const d = await getData();
-    const syncStatus = document.getElementById('sync-status');
-    if (syncStatus) syncStatus.textContent = SCRIPT_URL !== 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA' ? '🟢 Terhubung ke Google Sheets' : '🔴 Belum setup — data tidak tersinkron';
-    // Dashboard
-    document.getElementById('dash-price-ac').textContent = d.priceAC || DEFAULT_DATA.priceAC;
+    var d = await getData();
+    var el = document.getElementById('sync-status');
+    if (el) el.textContent = '🟢 Terhubung ke Google Sheets — data sinkron semua perangkat';
+    document.getElementById('dash-price-ac').textContent    = d.priceAC    || DEFAULT_DATA.priceAC;
     document.getElementById('dash-price-nonac').textContent = d.priceNonAC || DEFAULT_DATA.priceNonAC;
-    document.getElementById('dash-wa-num').textContent = d.waNumber || DEFAULT_DATA.waNumber;
-
-    // Harga
-    document.getElementById('inp-price-ac').value = d.priceAC || DEFAULT_DATA.priceAC;
+    document.getElementById('dash-wa-num').textContent      = d.waNumber   || DEFAULT_DATA.waNumber;
+    document.getElementById('inp-price-ac').value    = d.priceAC    || DEFAULT_DATA.priceAC;
     document.getElementById('inp-price-nonac').value = d.priceNonAC || DEFAULT_DATA.priceNonAC;
-    document.getElementById('inp-note-ac').value = d.noteAC || DEFAULT_DATA.noteAC;
-    document.getElementById('inp-note-nonac').value = d.noteNonAC || DEFAULT_DATA.noteNonAC;
-
-    // Pengaturan
-    document.getElementById('inp-wa').value = d.waNumber || DEFAULT_DATA.waNumber;
+    document.getElementById('inp-note-ac').value     = d.noteAC     || DEFAULT_DATA.noteAC;
+    document.getElementById('inp-note-nonac').value  = d.noteNonAC  || DEFAULT_DATA.noteNonAC;
+    document.getElementById('inp-wa').value           = d.waNumber   || DEFAULT_DATA.waNumber;
     document.getElementById('inp-contact-name').value = d.contactName || '';
   }
 
-  // ============================================================
-  // SAVE HARGA
-  // ============================================================
+  // ─── SIMPAN HARGA ────────────────────────────────────────────
   async function saveHarga() {
-    const d = await getData();
-    d.priceAC = document.getElementById('inp-price-ac').value.trim() || d.priceAC;
-    d.priceNonAC = document.getElementById('inp-price-nonac').value.trim() || d.priceNonAC;
-    d.noteAC = document.getElementById('inp-note-ac').value.trim();
-    d.noteNonAC = document.getElementById('inp-note-nonac').value.trim();
-    await saveData(d);
-    document.getElementById('dash-price-ac').textContent = d.priceAC;
-    document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
-    showToast('✅ Harga berhasil disimpan!');
+    var d = await getData();
+    var rawAC    = document.getElementById('inp-price-ac').value.trim();
+    var rawNonAC = document.getElementById('inp-price-nonac').value.trim();
+    // Pastikan format "Rp x.xxx.xxx" saat disimpan
+    d.priceAC    = formatPrice(rawAC)    || d.priceAC;
+    d.priceNonAC = formatPrice(rawNonAC) || d.priceNonAC;
+    d.noteAC     = document.getElementById('inp-note-ac').value.trim();
+    d.noteNonAC  = document.getElementById('inp-note-nonac').value.trim();
+    var ok = await saveData(d);
+    if (ok) {
+      _cachedData = null;
+      document.getElementById('dash-price-ac').textContent    = d.priceAC;
+      document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
+      // Update field input juga supaya terformat rapi
+      document.getElementById('inp-price-ac').value    = d.priceAC;
+      document.getElementById('inp-price-nonac').value = d.priceNonAC;
+      showToast('✅ Harga tersimpan & sinkron ke semua perangkat!');
+    }
   }
 
-  // ============================================================
-  // SAVE WA
-  // ============================================================
+  // ─── SIMPAN WA ───────────────────────────────────────────────
   async function saveWA() {
-    const d = await getData();
-    d.waNumber = document.getElementById('inp-wa').value.trim() || d.waNumber;
+    var d = await getData();
+    d.waNumber    = document.getElementById('inp-wa').value.trim() || d.waNumber;
     d.contactName = document.getElementById('inp-contact-name').value.trim();
-    await saveData(d);
-    document.getElementById('dash-wa-num').textContent = d.waNumber;
-    showToast('✅ Nomor WhatsApp disimpan!');
+    var ok = await saveData(d);
+    if (ok) {
+      _cachedData = null;
+      document.getElementById('dash-wa-num').textContent = d.waNumber;
+      showToast('✅ Nomor WA tersimpan & sinkron ke semua perangkat!');
+    }
   }
 
-  // ============================================================
-  // FASILITAS EDITOR
-  // ============================================================
-  let tempFacilities = [];
-
+  // ─── FASILITAS ───────────────────────────────────────────────
+  var tempFacilities = [];
   async function renderFacilitiesEditor() {
-    const d = await getData();
-    tempFacilities = JSON.parse(JSON.stringify(d.facilities));
-    const container = document.getElementById('facilities-editor');
+    var d = await getData();
+    tempFacilities = JSON.parse(JSON.stringify(d.facilities || DEFAULT_DATA.facilities));
+    renderFacilitiesEditorFromTemp();
+  }
+  function renderFacilitiesEditorFromTemp() {
+    var container = document.getElementById('facilities-editor');
     container.innerHTML = '';
-    tempFacilities.forEach((f, i) => {
-      const row = document.createElement('div');
+    tempFacilities.forEach(function(f, i) {
+      var row = document.createElement('div');
       row.className = 'facility-row';
-      row.innerHTML = `
-        <input class="emoji-input field" value="${f.icon}" onchange="tempFacilities[${i}].icon=this.value" maxlength="4">
-        <input class="field" value="${f.name}" onchange="tempFacilities[${i}].name=this.value" placeholder="Nama fasilitas">
-        <input class="field" value="${f.desc}" onchange="tempFacilities[${i}].desc=this.value" placeholder="Deskripsi">
-        <select class="badge-select field" onchange="tempFacilities[${i}].badge=this.value">
-          <option value="" ${!f.badge?'selected':''}>Semua</option>
-          <option value="AC Only" ${f.badge==='AC Only'?'selected':''}>AC Only</option>
-          <option value="Non-AC Only" ${f.badge==='Non-AC Only'?'selected':''}>Non-AC Only</option>
-        </select>
-        <button class="btn btn-danger" onclick="removeFacility(${i})" style="padding:8px 10px;">🗑️</button>
-      `;
+      row.innerHTML =
+        '<input class="emoji-input field" value="' + f.icon + '" oninput="tempFacilities[' + i + '].icon=this.value" maxlength="4">' +
+        '<input class="field" value="' + f.name + '" oninput="tempFacilities[' + i + '].name=this.value">' +
+        '<input class="field" value="' + f.desc + '" oninput="tempFacilities[' + i + '].desc=this.value">' +
+        '<select class="badge-select field" onchange="tempFacilities[' + i + '].badge=this.value">' +
+          '<option value="" '     + (!f.badge ? 'selected' : '') + '>Semua</option>' +
+          '<option value="AC Only" '    + (f.badge === 'AC Only'    ? 'selected' : '') + '>AC Only</option>' +
+          '<option value="Non-AC Only" '+ (f.badge === 'Non-AC Only'? 'selected' : '') + '>Non-AC Only</option>' +
+        '</select>' +
+        '<button class="btn btn-danger" onclick="removeFacility(' + i + ')" style="padding:8px 10px;">🗑️</button>';
       container.appendChild(row);
     });
   }
-
   function addFacility() {
     tempFacilities.push({ icon: '✨', name: 'Fasilitas Baru', desc: 'Deskripsi fasilitas', badge: '' });
     renderFacilitiesEditorFromTemp();
   }
-
-  function removeFacility(i) {
-    tempFacilities.splice(i, 1);
-    renderFacilitiesEditorFromTemp();
-  }
-
-  function renderFacilitiesEditorFromTemp() {
-    const container = document.getElementById('facilities-editor');
-    container.innerHTML = '';
-    tempFacilities.forEach((f, i) => {
-      const row = document.createElement('div');
-      row.className = 'facility-row';
-      row.innerHTML = `
-        <input class="emoji-input field" value="${f.icon}" oninput="tempFacilities[${i}].icon=this.value" maxlength="4">
-        <input class="field" value="${f.name}" oninput="tempFacilities[${i}].name=this.value" placeholder="Nama fasilitas">
-        <input class="field" value="${f.desc}" oninput="tempFacilities[${i}].desc=this.value" placeholder="Deskripsi">
-        <select class="badge-select field" onchange="tempFacilities[${i}].badge=this.value">
-          <option value="" ${!f.badge?'selected':''}>Semua</option>
-          <option value="AC Only" ${f.badge==='AC Only'?'selected':''}>AC Only</option>
-          <option value="Non-AC Only" ${f.badge==='Non-AC Only'?'selected':''}>Non-AC Only</option>
-        </select>
-        <button class="btn btn-danger" onclick="removeFacility(${i})" style="padding:8px 10px;">🗑️</button>
-      `;
-      container.appendChild(row);
-    });
-  }
-
+  function removeFacility(i) { tempFacilities.splice(i,1); renderFacilitiesEditorFromTemp(); }
   async function saveFasilitas() {
-    const d = await getData();
-    // collect current values from inputs
-    const rows = document.querySelectorAll('.facility-row');
-    rows.forEach((row, i) => {
-      const inputs = row.querySelectorAll('input, select');
+    var d = await getData();
+    var rows = document.querySelectorAll('.facility-row');
+    rows.forEach(function(row, i) {
+      var inp = row.querySelectorAll('input, select');
       if (tempFacilities[i]) {
-        tempFacilities[i].icon = inputs[0].value;
-        tempFacilities[i].name = inputs[1].value;
-        tempFacilities[i].desc = inputs[2].value;
-        tempFacilities[i].badge = inputs[3].value;
+        tempFacilities[i].icon  = inp[0].value;
+        tempFacilities[i].name  = inp[1].value;
+        tempFacilities[i].desc  = inp[2].value;
+        tempFacilities[i].badge = inp[3].value;
       }
     });
     d.facilities = tempFacilities;
-    await saveData(d);
-    showToast('✅ Fasilitas berhasil disimpan!');
+    var ok = await saveData(d);
+    if (ok) { _cachedData = null; showToast('✅ Fasilitas tersimpan & sinkron!'); }
   }
 
-  // ============================================================
-  // IMAGE UPLOADERS
-  // ============================================================
-  function renderAllUploaders() {
-    renderUploader('upload-hero', 'hero', 3);
-    renderUploader('upload-ac', 'ac', 6);
-    renderUploader('upload-nonac', 'nonac', 6);
-    renderUploader('upload-galeri', 'galeri', 8);
+  // ─── GALERI / FOTO ───────────────────────────────────────────
+  async function renderAllUploaders() {
+    await renderUploader('upload-hero','hero',3);
+    await renderUploader('upload-ac','ac',6);
+    await renderUploader('upload-nonac','nonac',6);
+    await renderUploader('upload-galeri','galeri',8);
   }
-
-  async function renderUploader(containerId, key, max) {
-    const container = document.getElementById(containerId);
+  async function renderUploader(cId, key, max) {
+    var container = document.getElementById(cId);
     if (!container) return;
-    const d = await getData();
-    const images = (d.images && d.images[key]) || [];
-    
-    container.innerHTML = `
-      <div class="img-upload-area" onclick="document.getElementById('file-${key}').click()">
-        <input type="file" id="file-${key}" accept="image/*" multiple onchange="handleUpload(event,'${key}',${max})">
-        <div class="upload-icon">📷</div>
-        <p><span class="upload-label">Klik untuk upload</span> atau drag & drop</p>
-        <p>JPG, PNG • Max 5MB per foto • Maks ${max} foto</p>
-      </div>
-      <div class="images-preview" id="preview-${key}"></div>
-    `;
+    var d = await getData();
+    var images = (d.images && d.images[key]) || [];
+    container.innerHTML =
+      '<div class="img-upload-area" onclick="document.getElementById('file-' + key + '').click()">' +
+        '<input type="file" id="file-' + key + '" accept="image/*" multiple onchange="handleUpload(event,'' + key + '',' + max + ')">' +
+        '<div class="upload-icon">📷</div>' +
+        '<p><span class="upload-label">Klik untuk upload</span> atau drag & drop</p>' +
+        '<p>JPG, PNG • Max 5MB • Maks ' + max + ' foto</p>' +
+      '</div><div class="images-preview" id="preview-' + key + '"></div>';
     renderPreview(key, images);
   }
-
   function renderPreview(key, images) {
-    const preview = document.getElementById('preview-' + key);
+    var preview = document.getElementById('preview-' + key);
     if (!preview) return;
-    preview.innerHTML = '';
-    images.forEach((src, i) => {
-      const thumb = document.createElement('div');
+    preview.innerHTML = images.length === 0
+      ? '<p style="font-size:0.78rem;color:var(--text-muted);padding:12px 0;">Belum ada foto.</p>'
+      : '';
+    images.forEach(function(src, i) {
+      var thumb = document.createElement('div');
       thumb.className = 'img-thumb';
-      thumb.innerHTML = `<img src="${src}"><button class="img-remove" onclick="removeImage('${key}',${i})">✕</button>`;
+      thumb.innerHTML = '<img src="' + src + '"><button class="img-remove" onclick="removeImage('' + key + '',' + i + ')">✕</button>';
       preview.appendChild(thumb);
     });
-    if (images.length === 0) {
-      preview.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:12px 0;">Belum ada foto. Upload foto di atas.</p>';
-    }
   }
-
   async function handleUpload(event, key, max) {
-    const files = Array.from(event.target.files);
-    const d = await getData();
-    if (!d.images) d.images = {};
+    var files = Array.from(event.target.files);
+    var d = await getData();
+    if (!d.images) d.images = { hero:[],ac:[],nonac:[],galeri:[] };
     if (!d.images[key]) d.images[key] = [];
-    
-    const remaining = max - d.images[key].length;
-    const toProcess = files.slice(0, remaining);
-    
-    if (files.length > remaining) showToast(`⚠️ Hanya ${remaining} foto lagi yang bisa ditambahkan`);
-    
-    let processed = 0;
+    var remaining = max - d.images[key].length;
+    var toProcess = files.slice(0, remaining);
+    if (files.length > remaining) showToast('⚠️ Maks ' + remaining + ' foto lagi');
+    var processed = 0;
     toProcess.forEach(function(file) {
-      if (file.size > 5 * 1024 * 1024) { showToast('❌ File terlalu besar (max 5MB)'); return; }
-      const reader = new FileReader();
+      if (file.size > 5*1024*1024) { showToast('❌ File terlalu besar (max 5MB)'); return; }
+      var reader = new FileReader();
       reader.onload = async function(ev) {
         d.images[key].push(ev.target.result);
         processed++;
         if (processed === toProcess.length) {
-          await saveData(d);
-          _cachedData = null;
-          renderPreview(key, d.images[key]);
-          showToast('✅ ' + processed + ' foto berhasil diupload & tersinkron!');
+          var ok = await saveData(d);
+          if (ok) { _cachedData=null; renderPreview(key, d.images[key]); showToast('✅ ' + processed + ' foto tersimpan!'); }
         }
       };
       reader.readAsDataURL(file);
     });
     event.target.value = '';
   }
-
   async function removeImage(key, index) {
-    const d = await getData();
+    var d = await getData();
     if (d.images && d.images[key]) {
-      d.images[key].splice(index, 1);
-      await saveData(d);
-      renderPreview(key, d.images[key]);
-      showToast('🗑️ Foto dihapus');
+      d.images[key].splice(index,1);
+      var ok = await saveData(d);
+      if (ok) { _cachedData=null; renderPreview(key, d.images[key]); showToast('🗑️ Foto dihapus'); }
     }
   }
 
-  // ============================================================
-  // TABS
-  // ============================================================
+  // ─── TABS ────────────────────────────────────────────────────
   function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
     document.getElementById(tabId).classList.add('active');
     event.currentTarget.classList.add('active');
     renderAllUploaders();
   }
 
-  // Auto-login check (skip if already noted)
-  document.getElementById('login-pass').addEventListener('keydown', e => {
+  document.getElementById('login-pass').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') doLogin();
   });
 </script>
