@@ -802,13 +802,28 @@
   async function loadSiteData() {
     var data = DEFAULT_DATA;
     try {
-      var res  = await fetch(BIN_URL + '/latest', {
-        headers: { 'X-Master-Key': API_KEY }
+      // Coba dengan Master Key dulu
+      var res = await fetch(BIN_URL + '/latest', {
+        headers: { 'X-Master-Key': API_KEY, 'X-Bin-Meta': 'false' }
       });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       var json = await res.json();
+      // JSONBin bisa return {record:...} atau langsung object
       if (json.record) data = Object.assign({}, DEFAULT_DATA, json.record);
+      else if (json.priceAC) data = Object.assign({}, DEFAULT_DATA, json);
     } catch(e) {
-      console.warn('Pakai data default:', e);
+      console.warn('Fetch gagal, coba tanpa auth:', e);
+      try {
+        // Fallback: coba tanpa header (kalau bin sudah public)
+        var res2 = await fetch(BIN_URL + '/latest');
+        if (res2.ok) {
+          var json2 = await res2.json();
+          if (json2.record) data = Object.assign({}, DEFAULT_DATA, json2.record);
+          else if (json2.priceAC) data = Object.assign({}, DEFAULT_DATA, json2);
+        }
+      } catch(e2) {
+        console.warn('Pakai data default:', e2);
+      }
     }
     applyData(data);
   }
