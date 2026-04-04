@@ -727,6 +727,10 @@
   }
 
   // ─── GALERI / FOTO ───────────────────────────────────────────
+  function triggerUpload(key) {
+    var el = document.getElementById('file-' + key);
+    if (el) el.click();
+  }
   async function renderAllUploaders() {
     await renderUploader('upload-hero',   'hero',   3);
     await renderUploader('upload-ac',     'ac',     6);
@@ -738,13 +742,13 @@
     if (!container) return;
     var d = await getData();
     var images = (d.images && d.images[key]) || [];
-    container.innerHTML =
-      '<div class="img-upload-area" onclick="document.getElementById('file-' + key + '').click()">' +
-        '<input type="file" id="file-' + key + '" accept="image/*" multiple onchange="handleUpload(event,'' + key + '',' + max + ')">' +
-        '<div class="upload-icon">📷</div>' +
-        '<p><span class="upload-label">Klik untuk upload</span> atau drag & drop</p>' +
-        '<p>JPG, PNG • Max 5MB • Maks ' + max + ' foto</p>' +
+    var uploadHtml = '<div class="img-upload-area" onclick="triggerUpload(\'' + key + '\')">' +
+      '<input type="file" id="file-' + key + '" accept="image/*" multiple onchange="handleUpload(event,\'' + key + '\',' + max + ')">' +
+      '<div class="upload-icon">📷</div>' +
+      '<p><span class="upload-label">Klik untuk upload</span> atau drag & drop</p>' +
+      '<p>JPG, PNG • Max 5MB • Maks ' + max + ' foto</p>' +
       '</div><div class="images-preview" id="preview-' + key + '"></div>';
+    container.innerHTML = uploadHtml;
     renderPreview(key, images);
   }
   function renderPreview(key, images) {
