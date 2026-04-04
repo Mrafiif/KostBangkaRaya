@@ -509,308 +509,355 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ─── AUTH ────────────────────────────────────────────────────
-  const DEFAULT_CREDENTIALS = { user:'admin', pass:'admin123' };
-  function getCredentials() {
-    try { var c = localStorage.getItem('kbr_creds'); return c ? JSON.parse(c) : DEFAULT_CREDENTIALS; }
-    catch(e) { return DEFAULT_CREDENTIALS; }
-  }
-  function resetCredentials() {
-    localStorage.removeItem('kbr_creds');
-    localStorage.removeItem('kbr_admin_creds');
-    document.getElementById('login-user').value = 'admin';
-    document.getElementById('login-pass').value = 'admin123';
+// AUTH
+var DEFAULT_CREDENTIALS = { user: 'admin', pass: 'admin123' };
+function getCredentials() {
+  try { var c = localStorage.getItem('kbr_creds'); return c ? JSON.parse(c) : DEFAULT_CREDENTIALS; }
+  catch(e) { return DEFAULT_CREDENTIALS; }
+}
+function resetCredentials() {
+  localStorage.removeItem('kbr_creds');
+  localStorage.removeItem('kbr_admin_creds');
+  document.getElementById('login-user').value = 'admin';
+  document.getElementById('login-pass').value = 'admin123';
+  document.getElementById('login-error').style.display = 'none';
+  alert('Password direset. Login dengan: admin / admin123');
+}
+async function doLogin() {
+  var u = document.getElementById('login-user').value.trim();
+  var p = document.getElementById('login-pass').value;
+  var creds = getCredentials();
+  if (u === creds.user && p === creds.pass) {
     document.getElementById('login-error').style.display = 'none';
-    alert('Password direset ke default: admin / admin123\nSilakan login sekarang.');
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-screen').style.display = 'block';
+    await loadAdminData();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
   }
-  async function doLogin() {
-    var u = document.getElementById('login-user').value.trim();
-    var p = document.getElementById('login-pass').value;
-    var creds = getCredentials();
-    if (u === creds.user && p === creds.pass) {
-      document.getElementById('login-error').style.display  = 'none';
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('admin-screen').style.display = 'block';
-      await loadAdminData();
-    } else {
-      document.getElementById('login-error').style.display = 'block';
+}
+function doLogout() {
+  document.getElementById('admin-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-pass').value = '';
+  _cachedData = null;
+}
+function changePassword() {
+  var np = document.getElementById('inp-new-pass').value;
+  var cp = document.getElementById('inp-confirm-pass').value;
+  if (!np) return showToast('Masukkan password baru');
+  if (np !== cp) return showToast('Password tidak cocok');
+  if (np.length < 6) return showToast('Minimal 6 karakter');
+  var creds = getCredentials();
+  creds.pass = np;
+  localStorage.setItem('kbr_creds', JSON.stringify(creds));
+  document.getElementById('inp-new-pass').value = '';
+  document.getElementById('inp-confirm-pass').value = '';
+  showToast('Password berhasil diganti');
+}
+
+// CONFIG
+var BIN_ID = '69cf5c7b36566621a8757ca4';
+var API_KEY = '$2a$10$4VmLWSsrPxNrG4XunB3mu.PBFf3OOpBIIKeVPZraTsX8O4rMPR7pu';
+var BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
+var DEFAULT_DATA = {
+  waNumber: '6285695284131', contactName: '',
+  priceAC: 'Rp 1.800.000', priceNonAC: 'Rp 1.200.000',
+  noteAC: 'Listrik token - isi token sendiri',
+  noteNonAC: 'Listrik sudah termasuk dalam harga sewa',
+  facilities: [
+    { icon: '🛵', name: 'Parkir Motor',      desc: 'Area parkir khusus motor yang aman.',          badge: '' },
+    { icon: '🚿', name: 'Kamar Mandi Dalam', desc: 'Kamar mandi pribadi di setiap kamar.',          badge: '' },
+    { icon: '📶', name: 'WiFi Kencang',       desc: 'Internet WiFi cepat untuk WFH dan streaming.', badge: '' },
+    { icon: '⚡', name: 'Listrik Termasuk',   desc: 'Listrik sudah termasuk untuk Non-AC.',         badge: 'Non-AC Only' },
+    { icon: '❄️', name: 'AC & Listrik Token', desc: 'Token isi sendiri, transparan.',               badge: 'AC Only' },
+    { icon: '🌿', name: 'Lingkungan Asri',    desc: 'Suasana tenang dan nyaman.',                   badge: '' }
+  ],
+  images: { hero: [], ac: [], nonac: [], galeri: [] }
+};
+var _cachedData = null;
+
+// READ
+async function getData() {
+  if (_cachedData) return _cachedData;
+  try {
+    showToast('Memuat data...');
+    var res = await fetch(BIN_URL + '/latest', { headers: { 'X-Master-Key': API_KEY } });
+    var json = await res.json();
+    if (json.record) {
+      _cachedData = Object.assign({}, DEFAULT_DATA, json.record);
+      _cachedData.facilities = json.record.facilities || DEFAULT_DATA.facilities;
+      _cachedData.images = json.record.images || DEFAULT_DATA.images;
+      return _cachedData;
     }
+  } catch(e) { console.warn('Gagal load:', e); }
+  _cachedData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  return _cachedData;
+}
+
+// WRITE
+async function saveData(data) {
+  _cachedData = data;
+  try {
+    var res = await fetch(BIN_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+      body: JSON.stringify(data)
+    });
+    var json = await res.json();
+    if (json.record) return true;
+    throw new Error('Save failed');
+  } catch(e) {
+    console.error('Gagal simpan:', e);
+    showToast('Gagal tersimpan! Cek koneksi.');
+    return false;
   }
-  function doLogout() {
-    document.getElementById('admin-screen').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('login-pass').value = '';
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3500);
+}
+
+// NAVIGASI
+async function showSection(name) {
+  document.querySelectorAll('.section-page').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  document.getElementById('section-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'fasilitas') await renderFacilitiesEditor();
+  if (name === 'galeri') await renderAllUploaders();
+  if (name === 'dashboard') await loadAdminData();
+}
+
+// DASHBOARD
+async function loadAdminData() {
+  var d = await getData();
+  var el = document.getElementById('sync-status');
+  if (el) el.textContent = 'Terhubung ke JSONBin - sinkron semua perangkat';
+  document.getElementById('dash-price-ac').textContent = d.priceAC || DEFAULT_DATA.priceAC;
+  document.getElementById('dash-price-nonac').textContent = d.priceNonAC || DEFAULT_DATA.priceNonAC;
+  document.getElementById('dash-wa-num').textContent = d.waNumber || DEFAULT_DATA.waNumber;
+  document.getElementById('inp-price-ac').value = d.priceAC || DEFAULT_DATA.priceAC;
+  document.getElementById('inp-price-nonac').value = d.priceNonAC || DEFAULT_DATA.priceNonAC;
+  document.getElementById('inp-note-ac').value = d.noteAC || DEFAULT_DATA.noteAC;
+  document.getElementById('inp-note-nonac').value = d.noteNonAC || DEFAULT_DATA.noteNonAC;
+  document.getElementById('inp-wa').value = d.waNumber || DEFAULT_DATA.waNumber;
+  document.getElementById('inp-contact-name').value = d.contactName || '';
+}
+
+// SIMPAN HARGA
+async function saveHarga() {
+  var d = await getData();
+  d.priceAC = document.getElementById('inp-price-ac').value.trim() || d.priceAC;
+  d.priceNonAC = document.getElementById('inp-price-nonac').value.trim() || d.priceNonAC;
+  d.noteAC = document.getElementById('inp-note-ac').value.trim();
+  d.noteNonAC = document.getElementById('inp-note-nonac').value.trim();
+  var ok = await saveData(d);
+  if (ok) {
     _cachedData = null;
+    document.getElementById('dash-price-ac').textContent = d.priceAC;
+    document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
+    showToast('Harga tersimpan dan sinkron ke semua perangkat!');
   }
-  function changePassword() {
-    var np = document.getElementById('inp-new-pass').value;
-    var cp = document.getElementById('inp-confirm-pass').value;
-    if (!np) return showToast('❌ Masukkan password baru');
-    if (np !== cp) return showToast('❌ Password tidak cocok');
-    if (np.length < 6) return showToast('❌ Minimal 6 karakter');
-    var creds = getCredentials(); creds.pass = np;
-    localStorage.setItem('kbr_creds', JSON.stringify(creds));
-    document.getElementById('inp-new-pass').value  = '';
-    document.getElementById('inp-confirm-pass').value = '';
-    showToast('✅ Password berhasil diganti');
-  }
+}
 
-  // ─── CONFIG JSONBin ──────────────────────────────────────────
-  const BIN_ID  = '69cf5c7b36566621a8757ca4';
-  const API_KEY = '$2a$10$4VmLWSsrPxNrG4XunB3mu.PBFf3OOpBIIKeVPZraTsX8O4rMPR7pu';
-  const BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
+// SIMPAN WA
+async function saveWA() {
+  var d = await getData();
+  d.waNumber = document.getElementById('inp-wa').value.trim() || d.waNumber;
+  d.contactName = document.getElementById('inp-contact-name').value.trim();
+  var ok = await saveData(d);
+  if (ok) {
+    _cachedData = null;
+    document.getElementById('dash-wa-num').textContent = d.waNumber;
+    showToast('Nomor WA tersimpan dan sinkron ke semua perangkat!');
+  }
+}
 
-  const DEFAULT_DATA = {
-    waNumber:'6285695284131', contactName:'',
-    priceAC:'Rp 1.800.000', priceNonAC:'Rp 1.200.000',
-    noteAC:'Listrik token — isi token sendiri',
-    noteNonAC:'Listrik sudah termasuk dalam harga sewa',
-    facilities:[
-      { icon:'🛵', name:'Parkir Motor',       desc:'Area parkir khusus motor yang aman dan terlindungi.',         badge:'' },
-      { icon:'🚿', name:'Kamar Mandi Dalam',  desc:'Kamar mandi pribadi di setiap kamar untuk kenyamanan maksimal.', badge:'' },
-      { icon:'📶', name:'WiFi Kencang',        desc:'Internet WiFi cepat untuk WFH, streaming, dan aktivitas online.', badge:'' },
-      { icon:'⚡', name:'Listrik Termasuk',    desc:'Listrik sudah termasuk dalam harga sewa untuk kamar Non-AC.', badge:'Non-AC Only' },
-      { icon:'❄️', name:'AC & Listrik Token',  desc:'Kamar AC dilengkapi sistem listrik token yang transparan.',   badge:'AC Only' },
-      { icon:'🌿', name:'Lingkungan Asri',     desc:'Suasana tenang dan nyaman di lingkungan perumahan yang asri.', badge:'' }
-    ],
-    images:{ hero:[], ac:[], nonac:[], galeri:[] }
-  };
+// FASILITAS
+var tempFacilities = [];
+async function renderFacilitiesEditor() {
+  var d = await getData();
+  tempFacilities = JSON.parse(JSON.stringify(d.facilities || DEFAULT_DATA.facilities));
+  renderFacilitiesEditorFromTemp();
+}
+function renderFacilitiesEditorFromTemp() {
+  var container = document.getElementById('facilities-editor');
+  container.innerHTML = '';
+  tempFacilities.forEach(function(f, i) {
+    var row = document.createElement('div');
+    row.className = 'facility-row';
 
-  var _cachedData = null;
+    var inp1 = document.createElement('input');
+    inp1.className = 'emoji-input field'; inp1.value = f.icon; inp1.maxLength = 4;
+    inp1.oninput = function() { tempFacilities[i].icon = this.value; };
 
-  // ─── READ dari JSONBin ───────────────────────────────────────
-  async function getData() {
-    if (_cachedData) return _cachedData;
-    try {
-      showToast('⏳ Memuat data...');
-      var res  = await fetch(BIN_URL + '/latest', {
-        headers: { 'X-Master-Key': API_KEY }
-      });
-      var json = await res.json();
-      if (json.record) {
-        _cachedData = Object.assign({}, DEFAULT_DATA, json.record,
-          { facilities: json.record.facilities || DEFAULT_DATA.facilities,
-             images:     json.record.images     || DEFAULT_DATA.images });
-        return _cachedData;
-      }
-    } catch(e) { console.warn('Gagal load:', e); }
-    _cachedData = JSON.parse(JSON.stringify(DEFAULT_DATA));
-    return _cachedData;
-  }
+    var inp2 = document.createElement('input');
+    inp2.className = 'field'; inp2.value = f.name; inp2.placeholder = 'Nama fasilitas';
+    inp2.oninput = function() { tempFacilities[i].name = this.value; };
 
-  // ─── WRITE ke JSONBin ────────────────────────────────────────
-  async function saveData(data) {
-    _cachedData = data;
-    try {
-      var res  = await fetch(BIN_URL, {
-        method:  'PUT',
-        headers: { 'Content-Type':'application/json', 'X-Master-Key': API_KEY },
-        body:    JSON.stringify(data)
-      });
-      var json = await res.json();
-      if (json.record) return true;
-      throw new Error('No record in response');
-    } catch(e) {
-      console.error('Gagal simpan:', e);
-      showToast('❌ Gagal tersimpan! Cek koneksi.');
-      return false;
-    }
-  }
+    var inp3 = document.createElement('input');
+    inp3.className = 'field'; inp3.value = f.desc; inp3.placeholder = 'Deskripsi';
+    inp3.oninput = function() { tempFacilities[i].desc = this.value; };
 
-  function showToast(msg) {
-    var t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    setTimeout(function(){ t.classList.remove('show'); }, 3500);
-  }
+    var sel = document.createElement('select');
+    sel.className = 'badge-select field';
+    sel.innerHTML = '<option value="">Semua</option><option value="AC Only">AC Only</option><option value="Non-AC Only">Non-AC Only</option>';
+    sel.value = f.badge;
+    sel.onchange = function() { tempFacilities[i].badge = this.value; };
 
-  // ─── NAVIGASI ────────────────────────────────────────────────
-  async function showSection(name) {
-    document.querySelectorAll('.section-page').forEach(function(p){ p.classList.remove('active'); });
-    document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
-    document.getElementById('section-' + name).classList.add('active');
-    event.currentTarget.classList.add('active');
-    if (name === 'fasilitas') await renderFacilitiesEditor();
-    if (name === 'galeri')    await renderAllUploaders();
-    if (name === 'dashboard') await loadAdminData();
-  }
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-danger'; btn.style.padding = '8px 10px'; btn.textContent = 'Hapus';
+    btn.onclick = function() { removeFacility(i); };
 
-  // ─── DASHBOARD ───────────────────────────────────────────────
-  async function loadAdminData() {
-    var d  = await getData();
-    var el = document.getElementById('sync-status');
-    if (el) el.textContent = '🟢 Terhubung ke JSONBin — sinkron semua perangkat';
-    document.getElementById('dash-price-ac').textContent    = d.priceAC    || DEFAULT_DATA.priceAC;
-    document.getElementById('dash-price-nonac').textContent = d.priceNonAC || DEFAULT_DATA.priceNonAC;
-    document.getElementById('dash-wa-num').textContent      = d.waNumber   || DEFAULT_DATA.waNumber;
-    document.getElementById('inp-price-ac').value    = d.priceAC    || DEFAULT_DATA.priceAC;
-    document.getElementById('inp-price-nonac').value = d.priceNonAC || DEFAULT_DATA.priceNonAC;
-    document.getElementById('inp-note-ac').value     = d.noteAC     || DEFAULT_DATA.noteAC;
-    document.getElementById('inp-note-nonac').value  = d.noteNonAC  || DEFAULT_DATA.noteNonAC;
-    document.getElementById('inp-wa').value           = d.waNumber   || DEFAULT_DATA.waNumber;
-    document.getElementById('inp-contact-name').value = d.contactName || '';
-  }
-
-  // ─── SIMPAN HARGA ────────────────────────────────────────────
-  async function saveHarga() {
-    var d = await getData();
-    d.priceAC    = document.getElementById('inp-price-ac').value.trim()    || d.priceAC;
-    d.priceNonAC = document.getElementById('inp-price-nonac').value.trim() || d.priceNonAC;
-    d.noteAC     = document.getElementById('inp-note-ac').value.trim();
-    d.noteNonAC  = document.getElementById('inp-note-nonac').value.trim();
-    var ok = await saveData(d);
-    if (ok) {
-      _cachedData = null;
-      document.getElementById('dash-price-ac').textContent    = d.priceAC;
-      document.getElementById('dash-price-nonac').textContent = d.priceNonAC;
-      showToast('✅ Harga tersimpan & sinkron ke semua perangkat!');
-    }
-  }
-
-  // ─── SIMPAN WA ───────────────────────────────────────────────
-  async function saveWA() {
-    var d = await getData();
-    d.waNumber    = document.getElementById('inp-wa').value.trim() || d.waNumber;
-    d.contactName = document.getElementById('inp-contact-name').value.trim();
-    var ok = await saveData(d);
-    if (ok) {
-      _cachedData = null;
-      document.getElementById('dash-wa-num').textContent = d.waNumber;
-      showToast('✅ Nomor WA tersimpan & sinkron ke semua perangkat!');
-    }
-  }
-
-  // ─── FASILITAS ───────────────────────────────────────────────
-  var tempFacilities = [];
-  async function renderFacilitiesEditor() {
-    var d = await getData();
-    tempFacilities = JSON.parse(JSON.stringify(d.facilities || DEFAULT_DATA.facilities));
-    renderFacilitiesEditorFromTemp();
-  }
-  function renderFacilitiesEditorFromTemp() {
-    var container = document.getElementById('facilities-editor');
-    container.innerHTML = '';
-    tempFacilities.forEach(function(f, i) {
-      var row = document.createElement('div');
-      row.className = 'facility-row';
-      row.innerHTML =
-        '<input class="emoji-input field" value="' + f.icon + '" oninput="tempFacilities[' + i + '].icon=this.value" maxlength="4">' +
-        '<input class="field" value="' + f.name + '" oninput="tempFacilities[' + i + '].name=this.value">' +
-        '<input class="field" value="' + f.desc + '" oninput="tempFacilities[' + i + '].desc=this.value">' +
-        '<select class="badge-select field" onchange="tempFacilities[' + i + '].badge=this.value">' +
-          '<option value="" '          + (!f.badge              ? 'selected' : '') + '>Semua</option>' +
-          '<option value="AC Only" '   + (f.badge==='AC Only'   ? 'selected' : '') + '>AC Only</option>' +
-          '<option value="Non-AC Only"'+ (f.badge==='Non-AC Only'?'selected' : '') + '>Non-AC Only</option>' +
-        '</select>' +
-        '<button class="btn btn-danger" onclick="removeFacility(' + i + ')" style="padding:8px 10px;">🗑️</button>';
-      container.appendChild(row);
-    });
-  }
-  function addFacility() {
-    tempFacilities.push({ icon:'✨', name:'Fasilitas Baru', desc:'Deskripsi fasilitas', badge:'' });
-    renderFacilitiesEditorFromTemp();
-  }
-  function removeFacility(i) { tempFacilities.splice(i,1); renderFacilitiesEditorFromTemp(); }
-  async function saveFasilitas() {
-    var d = await getData();
-    document.querySelectorAll('.facility-row').forEach(function(row, i) {
-      var inp = row.querySelectorAll('input, select');
-      if (tempFacilities[i]) {
-        tempFacilities[i].icon  = inp[0].value;
-        tempFacilities[i].name  = inp[1].value;
-        tempFacilities[i].desc  = inp[2].value;
-        tempFacilities[i].badge = inp[3].value;
-      }
-    });
-    d.facilities = tempFacilities;
-    var ok = await saveData(d);
-    if (ok) { _cachedData = null; showToast('✅ Fasilitas tersimpan & sinkron!'); }
-  }
-
-  // ─── GALERI / FOTO ───────────────────────────────────────────
-  function triggerUpload(key) {
-    var el = document.getElementById('file-' + key);
-    if (el) el.click();
-  }
-  async function renderAllUploaders() {
-    await renderUploader('upload-hero',   'hero',   3);
-    await renderUploader('upload-ac',     'ac',     6);
-    await renderUploader('upload-nonac',  'nonac',  6);
-    await renderUploader('upload-galeri', 'galeri', 8);
-  }
-  async function renderUploader(cId, key, max) {
-    var container = document.getElementById(cId);
-    if (!container) return;
-    var d = await getData();
-    var images = (d.images && d.images[key]) || [];
-    var uploadHtml = '<div class="img-upload-area" onclick="triggerUpload(\'' + key + '\')">' +
-      '<input type="file" id="file-' + key + '" accept="image/*" multiple onchange="handleUpload(event,\'' + key + '\',' + max + ')">' +
-      '<div class="upload-icon">📷</div>' +
-      '<p><span class="upload-label">Klik untuk upload</span> atau drag & drop</p>' +
-      '<p>JPG, PNG • Max 5MB • Maks ' + max + ' foto</p>' +
-      '</div><div class="images-preview" id="preview-' + key + '"></div>';
-    container.innerHTML = uploadHtml;
-    renderPreview(key, images);
-  }
-  function renderPreview(key, images) {
-    var preview = document.getElementById('preview-' + key);
-    if (!preview) return;
-    if (!images || images.length === 0) {
-      preview.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:12px 0;">Belum ada foto.</p>';
-      return;
-    }
-    preview.innerHTML = '';
-    images.forEach(function(src, i) {
-      var thumb = document.createElement('div');
-      thumb.className = 'img-thumb';
-      thumb.innerHTML = '<img src="' + src + '"><button class="img-remove" onclick="removeImage('' + key + '',' + i + ')">✕</button>';
-      preview.appendChild(thumb);
-    });
-  }
-  async function handleUpload(event, key, max) {
-    var files = Array.from(event.target.files);
-    var d = await getData();
-    if (!d.images) d.images = { hero:[],ac:[],nonac:[],galeri:[] };
-    if (!d.images[key]) d.images[key] = [];
-    var remaining = max - d.images[key].length;
-    var toProcess = files.slice(0, remaining);
-    if (files.length > remaining) showToast('⚠️ Maks ' + remaining + ' foto lagi');
-    var processed = 0;
-    toProcess.forEach(function(file) {
-      if (file.size > 5*1024*1024) { showToast('❌ File terlalu besar (max 5MB)'); return; }
-      var reader = new FileReader();
-      reader.onload = async function(ev) {
-        d.images[key].push(ev.target.result);
-        processed++;
-        if (processed === toProcess.length) {
-          var ok = await saveData(d);
-          if (ok) { _cachedData=null; renderPreview(key, d.images[key]); showToast('✅ ' + processed + ' foto tersimpan!'); }
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    event.target.value = '';
-  }
-  async function removeImage(key, index) {
-    var d = await getData();
-    if (d.images && d.images[key]) {
-      d.images[key].splice(index,1);
-      var ok = await saveData(d);
-      if (ok) { _cachedData=null; renderPreview(key, d.images[key]); showToast('🗑️ Foto dihapus'); }
-    }
-  }
-
-  // ─── TABS ────────────────────────────────────────────────────
-  function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(function(t){ t.classList.remove('active'); });
-    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
-    document.getElementById(tabId).classList.add('active');
-    event.currentTarget.classList.add('active');
-    renderAllUploaders();
-  }
-
-  document.getElementById('login-pass').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') doLogin();
+    row.appendChild(inp1); row.appendChild(inp2); row.appendChild(inp3);
+    row.appendChild(sel); row.appendChild(btn);
+    container.appendChild(row);
   });
+}
+function addFacility() {
+  tempFacilities.push({ icon: '✨', name: 'Fasilitas Baru', desc: 'Deskripsi', badge: '' });
+  renderFacilitiesEditorFromTemp();
+}
+function removeFacility(i) { tempFacilities.splice(i, 1); renderFacilitiesEditorFromTemp(); }
+async function saveFasilitas() {
+  var d = await getData();
+  var rows = document.querySelectorAll('.facility-row');
+  rows.forEach(function(row, i) {
+    var inp = row.querySelectorAll('input, select');
+    if (tempFacilities[i]) {
+      tempFacilities[i].icon  = inp[0].value;
+      tempFacilities[i].name  = inp[1].value;
+      tempFacilities[i].desc  = inp[2].value;
+      tempFacilities[i].badge = inp[3].value;
+    }
+  });
+  d.facilities = tempFacilities;
+  var ok = await saveData(d);
+  if (ok) { _cachedData = null; showToast('Fasilitas tersimpan!'); }
+}
+
+// GALERI
+async function renderAllUploaders() {
+  await renderUploader('upload-hero',   'hero',   3);
+  await renderUploader('upload-ac',     'ac',     6);
+  await renderUploader('upload-nonac',  'nonac',  6);
+  await renderUploader('upload-galeri', 'galeri', 8);
+}
+
+async function renderUploader(cId, key, max) {
+  var container = document.getElementById(cId);
+  if (!container) return;
+  var d = await getData();
+  var images = (d.images && d.images[key]) || [];
+
+  container.innerHTML = '';
+
+  var area = document.createElement('div');
+  area.className = 'img-upload-area';
+  area.onclick = function() { document.getElementById('file-' + key).click(); };
+
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.id = 'file-' + key;
+  inp.accept = 'image/*'; inp.multiple = true;
+  inp.onchange = function(e) { handleUpload(e, key, max); };
+
+  var icon = document.createElement('div');
+  icon.className = 'upload-icon'; icon.textContent = '📷';
+
+  var p1 = document.createElement('p');
+  p1.innerHTML = '<span class="upload-label">Klik untuk upload</span> atau drag & drop';
+
+  var p2 = document.createElement('p');
+  p2.textContent = 'JPG, PNG - Max 5MB - Maks ' + max + ' foto';
+
+  area.appendChild(inp); area.appendChild(icon);
+  area.appendChild(p1); area.appendChild(p2);
+
+  var preview = document.createElement('div');
+  preview.className = 'images-preview'; preview.id = 'preview-' + key;
+
+  container.appendChild(area);
+  container.appendChild(preview);
+  renderPreview(key, images);
+}
+
+function renderPreview(key, images) {
+  var preview = document.getElementById('preview-' + key);
+  if (!preview) return;
+  preview.innerHTML = '';
+  if (!images || images.length === 0) {
+    var p = document.createElement('p');
+    p.style.cssText = 'font-size:0.78rem;color:#6B6B6B;padding:12px 0';
+    p.textContent = 'Belum ada foto.';
+    preview.appendChild(p);
+    return;
+  }
+  images.forEach(function(src, i) {
+    var thumb = document.createElement('div');
+    thumb.className = 'img-thumb';
+
+    var img = document.createElement('img');
+    img.src = src;
+
+    var btn = document.createElement('button');
+    btn.className = 'img-remove'; btn.textContent = 'x';
+    btn.onclick = function() { removeImage(key, i); };
+
+    thumb.appendChild(img); thumb.appendChild(btn);
+    preview.appendChild(thumb);
+  });
+}
+
+async function handleUpload(event, key, max) {
+  var files = Array.from(event.target.files);
+  var d = await getData();
+  if (!d.images) d.images = { hero: [], ac: [], nonac: [], galeri: [] };
+  if (!d.images[key]) d.images[key] = [];
+  var remaining = max - d.images[key].length;
+  var toProcess = files.slice(0, remaining);
+  if (files.length > remaining) showToast('Maks ' + remaining + ' foto lagi');
+  var processed = 0;
+  toProcess.forEach(function(file) {
+    if (file.size > 5 * 1024 * 1024) { showToast('File terlalu besar (max 5MB)'); return; }
+    var reader = new FileReader();
+    reader.onload = async function(ev) {
+      d.images[key].push(ev.target.result);
+      processed++;
+      if (processed === toProcess.length) {
+        var ok = await saveData(d);
+        if (ok) { _cachedData = null; renderPreview(key, d.images[key]); showToast(processed + ' foto tersimpan!'); }
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+}
+
+async function removeImage(key, index) {
+  var d = await getData();
+  if (d.images && d.images[key]) {
+    d.images[key].splice(index, 1);
+    var ok = await saveData(d);
+    if (ok) { _cachedData = null; renderPreview(key, d.images[key]); showToast('Foto dihapus'); }
+  }
+}
+
+// TABS
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  event.currentTarget.classList.add('active');
+  renderAllUploaders();
+}
+
+document.getElementById('login-pass').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
 </script>
 </body>
 </html>
