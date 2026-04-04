@@ -779,52 +779,64 @@
 </a>
 
 <script>
-  const BIN_ID  = '69cf5c7b36566621a8757ca4';
-  const API_KEY = '$2a$10$eE87VP4LZzkxAt4KGQzsQ.dCNur7xNdQ9alaLcJFjhm4WVZwt3DpK';
-  const BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
+  var BIN_ID  = '69cf5c7b36566621a8757ca4';
+  var API_KEY = '$2a$10$eE87VP4LZzkxAt4KGQzsQ.dCNur7xNdQ9alaLcJFjhm4WVZwt3DpK';
+  var BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
 
-  const DEFAULT_DATA = {
-    waNumber:    '6285695284131',
-    priceAC:     'Rp 1.800.000',
-    priceNonAC:  'Rp 1.200.000',
-    noteAC:      'Listrik token — isi token sendiri',
-    noteNonAC:   'Listrik sudah termasuk dalam harga sewa',
-    facilities: [
-      { icon:'🛵', name:'Parkir Motor',       desc:'Area parkir khusus motor yang aman dan terlindungi.',               badge:'' },
-      { icon:'🚿', name:'Kamar Mandi Dalam',  desc:'Kamar mandi pribadi di setiap kamar untuk kenyamanan maksimal.',    badge:'' },
-      { icon:'📶', name:'WiFi Kencang',        desc:'Internet WiFi cepat untuk WFH, streaming, dan aktivitas online.',   badge:'' },
-      { icon:'⚡', name:'Listrik Termasuk',    desc:'Listrik sudah termasuk dalam harga sewa untuk kamar Non-AC.',       badge:'Non-AC Only', badgeColor:'#FEF3E2', badgeText:'#C47F1E' },
-      { icon:'❄️', name:'AC & Listrik Token',  desc:'Kamar AC dilengkapi sistem listrik token yang transparan.',         badge:'AC Only',     badgeColor:'#E8F4FD', badgeText:'#1E7DC4' },
-      { icon:'🌿', name:'Lingkungan Asri',     desc:'Suasana tenang dan nyaman di lingkungan perumahan yang asri.',      badge:'' }
-    ]
+  var DEFAULT_DATA = {
+    waNumber:   '6285695284131',
+    priceAC:    'Rp 1.800.000',
+    priceNonAC: 'Rp 1.200.000'
   };
 
   async function loadSiteData() {
-    var data = DEFAULT_DATA;
+    var data = null;
+
+    // Coba 1: Fetch dari JSONBin dengan key
     try {
-      // Coba dengan Master Key dulu
       var res = await fetch(BIN_URL + '/latest', {
-        headers: { 'X-Master-Key': API_KEY, 'X-Bin-Meta': 'false' }
+        headers: { 'X-Master-Key': API_KEY }
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      var json = await res.json();
-      // JSONBin bisa return {record:...} atau langsung object
-      if (json.record) data = Object.assign({}, DEFAULT_DATA, json.record);
-      else if (json.priceAC) data = Object.assign({}, DEFAULT_DATA, json);
-    } catch(e) {
-      console.warn('Fetch gagal, coba tanpa auth:', e);
+      if (res.ok) {
+        var json = await res.json();
+        if (json && json.record && json.record.priceAC) {
+          data = json.record;
+          // Simpan ke cache localStorage
+          localStorage.setItem('kbr_cache', JSON.stringify({ d: data, t: Date.now() }));
+        }
+      }
+    } catch(e) {}
+
+    // Coba 2: Fetch tanpa key (public bin)
+    if (!data) {
       try {
-        // Fallback: coba tanpa header (kalau bin sudah public)
         var res2 = await fetch(BIN_URL + '/latest');
         if (res2.ok) {
           var json2 = await res2.json();
-          if (json2.record) data = Object.assign({}, DEFAULT_DATA, json2.record);
-          else if (json2.priceAC) data = Object.assign({}, DEFAULT_DATA, json2);
+          if (json2 && json2.record && json2.record.priceAC) {
+            data = json2.record;
+            localStorage.setItem('kbr_cache', JSON.stringify({ d: data, t: Date.now() }));
+          }
         }
-      } catch(e2) {
-        console.warn('Pakai data default:', e2);
-      }
+      } catch(e) {}
     }
+
+    // Coba 3: Pakai cache localStorage jika ada (max 24 jam)
+    if (!data) {
+      try {
+        var raw = localStorage.getItem('kbr_cache');
+        if (raw) {
+          var c = JSON.parse(raw);
+          if (c && c.d && c.d.priceAC && (Date.now() - c.t) < 86400000) {
+            data = c.d;
+          }
+        }
+      } catch(e) {}
+    }
+
+    // Fallback final: DEFAULT_DATA
+    if (!data) data = DEFAULT_DATA;
+
     applyData(data);
   }
 
@@ -837,10 +849,10 @@
     var waNum = data.waNumber || DEFAULT_DATA.waNumber;
     document.querySelectorAll('.wa-link').forEach(function(link) {
       var type = link.getAttribute('data-type');
-      var msg  = encodeURIComponent('Halo, saya tertarik dengan Kamar ' + type + ' di Kost Bangka Raya. Apakah masih tersedia? Terima kasih 🙏');
+      var msg  = encodeURIComponent('Halo, saya tertarik dengan Kamar ' + type + ' di Kost Bangka Raya. Apakah masih tersedia? Terima kasih');
       link.href = 'https://wa.me/' + waNum + '?text=' + msg;
     });
-    var gMsg = encodeURIComponent('Halo, saya ingin info lebih lanjut tentang Kost Bangka Raya. Terima kasih 🙏');
+    var gMsg = encodeURIComponent('Halo, saya ingin info lebih lanjut tentang Kost Bangka Raya. Terima kasih');
     var gUrl = 'https://wa.me/' + waNum + '?text=' + gMsg;
     ['hero-wa-btn','nav-wa-btn','cta-wa-btn','wa-float','footer-wa'].forEach(function(id) {
       var el = document.getElementById(id);
@@ -853,7 +865,7 @@
   document.querySelectorAll('a[href^="#"]').forEach(function(a) {
     a.addEventListener('click', function(e) {
       var target = document.querySelector(a.getAttribute('href'));
-      if (target) { e.preventDefault(); target.scrollIntoView({ behavior:'smooth' }); }
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
     });
   });
 </script>
