@@ -278,6 +278,12 @@
     <p style="font-size:0.72rem;color:var(--text-muted);margin-top:16px;text-align:center;">
       Default: admin / admin123 — Ganti di menu Pengaturan
     </p>
+    <p style="margin-top:12px;text-align:center;">
+      <span onclick="resetCredentials()" 
+        style="font-size:0.72rem;color:#aaa;cursor:pointer;text-decoration:underline;">
+        Lupa password? Klik reset ke default
+      </span>
+    </p>
   </div>
 </div>
 
@@ -508,6 +514,14 @@
   function getCredentials() {
     try { var c = localStorage.getItem('kbr_creds'); return c ? JSON.parse(c) : DEFAULT_CREDENTIALS; }
     catch(e) { return DEFAULT_CREDENTIALS; }
+  }
+  function resetCredentials() {
+    localStorage.removeItem('kbr_creds');
+    localStorage.removeItem('kbr_admin_creds');
+    document.getElementById('login-user').value = 'admin';
+    document.getElementById('login-pass').value = 'admin123';
+    document.getElementById('login-error').style.display = 'none';
+    alert('Password direset ke default: admin / admin123\nSilakan login sekarang.');
   }
   async function doLogin() {
     var u = document.getElementById('login-user').value.trim();
